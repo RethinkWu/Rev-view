@@ -1,0 +1,18 @@
+{
+	"compilerOptions": {
+		"baseUrl": ".",
+		"inlineSourceMap": true,
+		"inlineSources": true,
+		"module": "ESNext",
+		"target": "ES2021",
+		"lib": ["DOM", "ES2021"],
+		"moduleResolution": "bundler",
+		"allowJs": true,
+		"strict": true,
+		"isolatedModules": true,
+		"importHelpers": true,
+		"skipLibCheck": true,
+		"forceConsistentCasingInFileNames": true
+	},
+	"include": ["src/**/*.ts"]
+}

@@ -1,0 +1,9 @@
+{
+	"id": "rev-view",
+	"name": "Rev:View",
+	"version": "0.1.0",
+	"minAppVersion": "1.10.0",
+	"description": "Nested board view for Bases: boards inside boards, with cards at the innermost level.",
+	"author": "RethinkWu",
+	"isDesktopOnly": false
+}

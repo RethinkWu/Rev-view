@@ -1,0 +1,111 @@
+/* ============================================
+   Rev:View — 嵌套看板视图
+   所有类名以 rev-view- 为前缀，避免污染全局样式
+   ============================================ */
+
+/* 容器：一级分组横向排列 */
+.rev-view-container {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 16px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  height: 100%;
+  box-sizing: border-box;
+  scrollbar-width: thin;
+}
+
+/* 容器内滚动条样式（Webkit 内核） */
+.rev-view-container::-webkit-scrollbar {
+  height: 8px;
+}
+
+.rev-view-container::-webkit-scrollbar-thumb {
+  background-color: var(--background-modifier-border);
+  border-radius: 4px;
+}
+
+.rev-view-container::-webkit-scrollbar-thumb:hover {
+  background-color: var(--background-modifier-border-hover);
+}
+
+/* ============================================
+   列：每列代表一个分组
+   ============================================ */
+.rev-view-column {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 280px;          /* 固定列宽，不伸缩 */
+  max-height: 100%;
+  background-color: var(--background-secondary);
+  border-radius: 10px;
+  padding: 12px;
+  box-sizing: border-box;
+  /* 让列有轻微阴影，与背景分离 */
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  /* 列本身不滚动，让卡片列表滚动 */
+  overflow: hidden;
+}
+
+/* 列标题 */
+.rev-view-column > h3 {
+  margin: 0 0 12px 0;
+  padding-bottom: 8px;
+  font-size: 0.95em;
+  font-weight: 600;
+  color: var(--text-muted);
+  border-bottom: 2px solid var(--interactive-accent);
+  flex-shrink: 0;           /* 标题不参与滚动 */
+}
+
+/* ============================================
+   卡片列表：列内的滚动区域
+   ============================================ */
+.rev-view-card-list {
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;            /* Flex 子元素滚动的关键 */
+  scrollbar-width: thin;
+}
+
+.rev-view-card-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.rev-view-card-list::-webkit-scrollbar-thumb {
+  background-color: var(--background-modifier-border);
+  border-radius: 3px;
+}
+
+/* ============================================
+   卡片
+   ============================================ */
+.rev-view-card {
+  background-color: var(--background-primary);
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin-bottom: 10px;
+  cursor: pointer;
+  box-sizing: border-box;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+.rev-view-card:last-child {
+  margin-bottom: 0;
+}
+
+.rev-view-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.14);
+}
+
+@media (max-width: 768px) {
+  .rev-view-column {
+    flex: 0 0 220px;
+  }
+}
