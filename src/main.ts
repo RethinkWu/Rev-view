@@ -52,9 +52,7 @@ export class RefineBasesView extends BasesView {
 			});
 		}
 
-		renderBoard(this.containerEl, this.data.data, properties, (cardEl, entry) => {
-			cardEl.createEl('h4', { text: entry.file.name });
-		});
+		renderBoard(this.containerEl, this.data.data, properties, this);
 	}
 
 	/**

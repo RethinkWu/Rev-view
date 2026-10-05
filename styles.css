@@ -182,11 +182,36 @@
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.14);
 }
 
-/* 卡片标题 */
-.refine-card > h4 {
-  margin: 0;
-  font-size: 0.95em;
-  font-weight: 500;
+/* ============================================
+   卡片内容
+   结构照抄 Bases 内置卡片视图：
+     标题（Properties 第一项的值，不带标签）
+     属性名（小字号、灰）+ 属性值 —— 每组一块
+   ============================================ */
+.refine-card-title {
+  margin-bottom: 8px;
+  font-size: 1em;
+  font-weight: 600;
+  color: var(--text-normal);
+}
+
+.refine-card-property {
+  margin-bottom: 8px;
+}
+
+.refine-card-property:last-child {
+  margin-bottom: 0;
+}
+
+/* 属性名：在值的上面，字号更小 */
+.refine-card-property-name {
+  margin-bottom: 2px;
+  font-size: 0.75em;
+  color: var(--text-muted);
+}
+
+.refine-card-property-value {
+  font-size: 0.9em;
   color: var(--text-normal);
 }
 
