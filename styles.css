@@ -1,56 +1,134 @@
 /* ============================================
    Rev:View — 嵌套看板视图
-   所有类名以 rev-view- 为前缀，避免污染全局样式
+   所有类名以 refine- 为前缀，避免污染全局样式
    ============================================ */
 
-/* 容器：一级分组横向排列 */
-.rev-view-container {
+/* 根容器：纵向排列「提示条 + 看板区」 */
+.refine-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+/* 警告 / 彩蛋，都是看板区上方的一行小字 */
+.refine-warning,
+.refine-reminder {
+  flex-shrink: 0;
+  padding: 8px 16px 0;
+  font-size: 0.9em;
+  color: var(--text-muted);
+}
+
+.refine-warning {
+  color: var(--text-error);
+}
+
+/* 对不上的条目清单 */
+.refine-warning ul {
+  margin: 4px 0 0;
+  padding-left: 1.4em;
+}
+
+.refine-warning li {
+  margin: 0;
+}
+
+/* 最后那行「该怎么改」弱化一点，别和错误本身抢注意力 */
+.refine-warning p {
+  margin: 4px 0 0;
+  color: var(--text-muted);
+}
+
+.refine-reminder {
+  color: var(--text-faint);
+  font-style: italic;
+}
+
+/* ============================================
+   一排并列的看板。每一层嵌套都是这个结构。
+   ============================================ */
+.refine-columns {
   display: flex;
   flex-direction: row;
   align-items: flex-start;
   gap: 16px;
-  padding: 16px;
-  overflow-x: auto;
-  overflow-y: hidden;
-  height: 100%;
   box-sizing: border-box;
   scrollbar-width: thin;
 }
 
-/* 容器内滚动条样式（Webkit 内核） */
-.rev-view-container::-webkit-scrollbar {
+/* 根那一层：占满剩余高度，自己滚动 */
+.refine-container > .refine-columns {
+  flex: 1;
+  min-height: 0;
+  padding: 16px;
+  overflow: auto;
+}
+
+.refine-container > .refine-columns::-webkit-scrollbar {
   height: 8px;
 }
 
-.rev-view-container::-webkit-scrollbar-thumb {
+.refine-container > .refine-columns::-webkit-scrollbar-thumb {
   background-color: var(--background-modifier-border);
   border-radius: 4px;
 }
 
-.rev-view-container::-webkit-scrollbar-thumb:hover {
-  background-color: var(--background-modifier-border-hover);
+/* 嵌套在某一列里的那一层：占满该列剩余高度，自己滚动 */
+.refine-column > .refine-columns {
+  flex: 1;
+  min-height: 0;
+  gap: 10px;
+  overflow: auto;
 }
 
 /* ============================================
-   列：每列代表一个分组
+   看板（一列 = 一个分组）
    ============================================ */
-.rev-view-column {
+.refine-column {
+  /* 列宽的三档参数。做成自定义属性，是为了让下面的「嵌套层级」一次覆盖一档，
+     不用去跟 flex / min-width / max-width 的优先级打架（自定义属性会继承）。 */
+  --refine-col-basis: 280px;
+  --refine-col-min: 200px;
+  --refine-col-max: 420px;
+
   display: flex;
   flex-direction: column;
-  flex: 0 0 280px;          /* 固定列宽，不伸缩 */
+  /* 基准可伸可缩：排得下就长，最多长到 --refine-col-max；
+     排不下就缩，缩到 --refine-col-min 为止，然后整排横向滚动 */
+  flex: 1 1 var(--refine-col-basis);
+  min-width: var(--refine-col-min);
+  max-width: var(--refine-col-max);
   max-height: 100%;
   background-color: var(--background-secondary);
   border-radius: 10px;
   padding: 12px;
   box-sizing: border-box;
-  /* 让列有轻微阴影，与背景分离 */
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-  /* 列本身不滚动，让卡片列表滚动 */
+  /* 列本身不滚动，让里面的卡片列表 / 子看板滚动 */
   overflow: hidden;
 }
 
-/* 列标题 */
-.rev-view-column > h3 {
+/* 装着子看板的列：宽度由里面的子看板撑开（max-content），
+   但不超过 --refine-col-max；超了就让里面那一排自己横向滚动 */
+.refine-column--parent {
+  flex: 0 0 auto;
+  width: max-content;
+}
+
+/* 嵌套层级：整档收窄 + 底色换一下，方便看清层次 */
+.refine-column .refine-column {
+  --refine-col-basis: 200px;
+  --refine-col-min: 150px;
+  --refine-col-max: 300px;
+  padding: 10px;
+  background-color: var(--background-primary-alt);
+  box-shadow: none;
+}
+
+/* 看板标题（分组名） */
+.refine-column > h3 {
   margin: 0 0 12px 0;
   padding-bottom: 8px;
   font-size: 0.95em;
@@ -61,9 +139,9 @@
 }
 
 /* ============================================
-   卡片列表：列内的滚动区域
+   卡片列表（最内层）
    ============================================ */
-.rev-view-card-list {
+.refine-card-list {
   display: flex;
   flex-direction: column;
   overflow-y: auto;
@@ -72,11 +150,11 @@
   scrollbar-width: thin;
 }
 
-.rev-view-card-list::-webkit-scrollbar {
+.refine-card-list::-webkit-scrollbar {
   width: 6px;
 }
 
-.rev-view-card-list::-webkit-scrollbar-thumb {
+.refine-card-list::-webkit-scrollbar-thumb {
   background-color: var(--background-modifier-border);
   border-radius: 3px;
 }
@@ -84,7 +162,7 @@
 /* ============================================
    卡片
    ============================================ */
-.rev-view-card {
+.refine-card {
   background-color: var(--background-primary);
   border-radius: 8px;
   padding: 12px 14px;
@@ -95,17 +173,27 @@
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
 }
 
-.rev-view-card:last-child {
+.refine-card:last-child {
   margin-bottom: 0;
 }
 
-.rev-view-card:hover {
+.refine-card:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.14);
 }
 
+/* 卡片标题 */
+.refine-card > h4 {
+  margin: 0;
+  font-size: 0.95em;
+  font-weight: 500;
+  color: var(--text-normal);
+}
+
 @media (max-width: 768px) {
-  .rev-view-column {
-    flex: 0 0 220px;
+  .refine-column {
+    --refine-col-basis: 200px;
+    --refine-col-min: 160px;
+    --refine-col-max: 300px;
   }
 }

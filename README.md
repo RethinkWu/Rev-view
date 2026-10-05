@@ -7,19 +7,33 @@ Instead of one flat row of columns, Rev:View renders boards *inside* boards, wit
 the innermost level — so a multi-level note structure (project → milestone → task, say) can
 be read at a glance.
 
-> **Status: early development.** The view currently renders a single level of grouping.
-> Nested boards and card rendering are not implemented yet.
+> **Status: early development.** Nesting works, but cards currently show only the note name.
 
 ## Requirements
 
-- Obsidian **1.10.0** or later — the Bases view API used here (`registerBasesView`) landed
-  in 1.10.0.
+- Obsidian **1.10.2** or later.
 - The core **Bases** plugin enabled.
 
 ## Usage
 
-1. Open a base and add a view.
-2. Pick **Rev:View** from the view type menu.
+Rev:View reads its nesting order from a **formula** in your base.
+
+1. In your base, create a formula property whose value is a list of properties, outermost
+   first. For example, to nest by `project` → `milestone`:
+
+   ```
+   ["note.project", "note.milestone"]
+   ```
+
+   Bare names work too (`["project", "milestone"]`); they're resolved against the properties
+   in the base, preferring `note.` → `formula.` → `file.`.
+
+2. Add a view, pick **Rev:View** from the view type menu.
+3. In the view options, set **Nest by** to the formula you created in step 1.
+
+Notes missing a property are collected into an **Ungroup** board, at every level.
+With no **Nest by** selected, the view renders a single **Ungroup** board containing
+everything.
 
 ## Development
 
