@@ -55,7 +55,6 @@
   align-items: flex-start;
   gap: 16px;
   box-sizing: border-box;
-  scrollbar-width: thin;
 }
 
 /* 根那一层：占满剩余高度，自己滚动 */
@@ -64,15 +63,6 @@
   min-height: 0;
   padding: 16px;
   overflow: auto;
-}
-
-.refine-container > .refine-columns::-webkit-scrollbar {
-  height: 8px;
-}
-
-.refine-container > .refine-columns::-webkit-scrollbar-thumb {
-  background-color: var(--background-modifier-border);
-  border-radius: 4px;
 }
 
 /* 嵌套在某一列里的那一层：占满该列剩余高度，自己滚动 */
@@ -87,11 +77,12 @@
    看板（一列 = 一个分组）
    ============================================ */
 .refine-column {
-  /* 列宽的三档参数。做成自定义属性，是为了让下面的「嵌套层级」一次覆盖一档，
-     不用去跟 flex / min-width / max-width 的优先级打架（自定义属性会继承）。 */
-  --refine-col-basis: 280px;
-  --refine-col-min: 200px;
-  --refine-col-max: 420px;
+  /* 列宽只由 --refine-column-width 一个值推出来 —— 边界值都用 calc 按比例算，
+     所以视图选项里那根滑条一拖，上下限会跟着一起动。
+     这个变量由 JS 设在内层容器上（内联样式），会继承给所有看板。 */
+  --refine-col-basis: var(--refine-column-width, 340px);
+  --refine-col-min: calc(var(--refine-col-basis) * 0.65);
+  --refine-col-max: calc(var(--refine-col-basis) * 1.5);
 
   display: flex;
   flex-direction: column;
@@ -100,7 +91,10 @@
   flex: 1 1 var(--refine-col-basis);
   min-width: var(--refine-col-min);
   max-width: var(--refine-col-max);
-  max-height: 100%;
+
+  /* 看板最高多少，超过就在卡片列表里滚。由「Column height」滑条驱动
+     （JS 设在容器上的内联变量）；没给值就退回撑满视图。 */
+  max-height: var(--refine-column-max-height, 100%);
   background-color: var(--background-secondary);
   border-radius: 10px;
   padding: 12px;
@@ -117,11 +111,10 @@
   width: max-content;
 }
 
-/* 嵌套层级：整档收窄 + 底色换一下，方便看清层次 */
+/* 嵌套层级：整档收窄 + 底色换一下，方便看清层次。
+   只改 basis —— min/max 是上面用 calc 从 basis 推出来的，会自动跟着收窄。 */
 .refine-column .refine-column {
-  --refine-col-basis: 200px;
-  --refine-col-min: 150px;
-  --refine-col-max: 300px;
+  --refine-col-basis: calc(var(--refine-column-width, 340px) * 0.7);
   padding: 10px;
   background-color: var(--background-primary-alt);
   box-shadow: none;
@@ -147,22 +140,24 @@
   overflow-y: auto;
   flex: 1;
   min-height: 0;            /* Flex 子元素滚动的关键 */
-  scrollbar-width: thin;
-}
-
-.refine-card-list::-webkit-scrollbar {
-  width: 6px;
-}
-
-.refine-card-list::-webkit-scrollbar-thumb {
-  background-color: var(--background-modifier-border);
-  border-radius: 3px;
 }
 
 /* ============================================
    卡片
    ============================================ */
 .refine-card {
+  /* 卡片自己也有高度上限 —— 属性多、大纲长的时候在卡片内部滚，不把整列撑爆 */
+  --refine-card-max-height: 360px;
+
+  /* 一旦卡片变成滚动容器，它在 flex 里的自动最小高度会变成 0，
+     不加这行会被兄弟卡片挤扁 */
+  flex-shrink: 0;
+
+  max-height: var(--refine-card-max-height);
+  overflow-y: auto;
+  /* 卡片滚到底就停住，不要接着带动外面的卡片列表 */
+  overscroll-behavior: contain;
+
   background-color: var(--background-primary);
   border-radius: 8px;
   padding: 12px 14px;
@@ -171,6 +166,19 @@
   box-sizing: border-box;
   transition: transform 0.12s ease, box-shadow 0.12s ease;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+/* ============================================
+   滚动条：直接不显示
+   滚动本身照常工作，只是没有可见的条。
+   用标准属性而不是 ::-webkit-scrollbar —— 实测主题会把后者整个压掉。
+   ============================================ */
+.refine-container .refine-columns,
+.refine-container .refine-card-list,
+.refine-container .refine-card {
+  scrollbar-width: none;
+  /* 兜底：万一 scrollbar-width 被别的规则盖掉，颜色这层还能让它隐形 */
+  scrollbar-color: transparent transparent;
 }
 
 .refine-card:last-child {
@@ -272,10 +280,11 @@
   text-decoration: underline;
 }
 
+/* 窄屏整体再收一档。
+   注意改的是 --refine-col-basis 而不是 --refine-column-width —— 后者是内联样式，
+   优先级比媒体查询高，改不动。 */
 @media (max-width: 768px) {
   .refine-column {
-    --refine-col-basis: 200px;
-    --refine-col-min: 160px;
-    --refine-col-max: 300px;
+    --refine-col-basis: calc(var(--refine-column-width, 340px) * 0.7);
   }
 }

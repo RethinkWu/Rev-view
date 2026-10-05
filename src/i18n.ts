@@ -21,6 +21,8 @@ const EN = {
 	outlineRoot: 'Outline root',
 	autoExpandOutline: 'Auto expand outline',
 	ungroup: 'Ungroup',
+	columnWidth: 'Column width',
+	columnHeight: 'Column height',
 	tooMuchToDraw:
 		'Too much to draw — {entries} notes across {boards} boards (limit {limit}). Narrow the filters, or lower Nest depth.',
 	badNestDepth:
@@ -44,6 +46,8 @@ const ZH: Dictionary = {
 	outlineRoot: '大纲根标题',
 	autoExpandOutline: '默认展开大纲',
 	ungroup: '未分组',
+	columnWidth: '看板宽度',
+	columnHeight: '看板高度',
 	tooMuchToDraw: '要画的东西太多了 —— {entries} 条笔记、{boards} 个看板（上限 {limit}）。缩小筛选范围，或者调低嵌套层数。',
 	badNestDepth: '嵌套层数要填整数 —— 已忽略 "{value}"，改成按全部排序字段嵌套。',
 	depthReminder5: '已经五层了。',
@@ -60,6 +64,8 @@ const ZH_TW: Dictionary = {
 	outlineRoot: '大綱根標題',
 	autoExpandOutline: '預設展開大綱',
 	ungroup: '未分組',
+	columnWidth: '看板寬度',
+	columnHeight: '看板高度',
 	tooMuchToDraw: '要畫的東西太多了 —— {entries} 條筆記、{boards} 個看板（上限 {limit}）。縮小篩選範圍，或調低巢狀層數。',
 	badNestDepth: '巢狀層數需要整數 —— 已忽略 "{value}"，改為以全部排序欄位進行巢狀。',
 	depthReminder5: '已經五層了。',
@@ -76,6 +82,8 @@ const JA: Dictionary = {
 	outlineRoot: 'アウトラインのルート',
 	autoExpandOutline: 'アウトラインを自動展開',
 	ungroup: '未分類',
+	columnWidth: 'ボードの幅',
+	columnHeight: 'ボードの高さ',
 	tooMuchToDraw:
 		'描画量が多すぎます —— {entries} 件のノート、{boards} 個のボード（上限 {limit}）。フィルタを絞るか、ネストの深さを下げてください。',
 	badNestDepth:

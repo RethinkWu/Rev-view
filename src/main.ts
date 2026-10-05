@@ -27,6 +27,18 @@ const OUTLINE_EXPANDED_KEY = 'outline-expanded';
 /** 视图选项 key：大纲折叠开关上显示的文字。 */
 const OUTLINE_LABEL_KEY = 'outline-label';
 
+/** 视图选项 key：看板默认宽度（px）。嵌套层按比例自动收窄，不用另配。 */
+const COLUMN_WIDTH_KEY = 'column-width';
+
+/** 视图选项 key：看板最大高度（px）。超过就在卡片列表里滚。 */
+const COLUMN_HEIGHT_KEY = 'column-height';
+
+/** 滑条没给出值时的兜底宽度，跟 CSS 里的默认值保持一致。 */
+const DEFAULT_COLUMN_WIDTH = 340;
+
+/** 看板高度滑条的默认值（px）。780 是实测调出来的 —— 大约够放 10 张只有标题的卡片。 */
+const DEFAULT_COLUMN_HEIGHT = 780;
+
 /** 数据变动后等这么久再重建。Bases 在任何 vault 变动时都会回调，防抖掉连续触发。 */
 const RENDER_DELAY_MS = 100;
 
@@ -87,6 +99,26 @@ export default class RevViewPlugin extends Plugin {
 					default: false,
 				},
 				{
+					// 看板默认多宽。嵌套层级会按比例自动收窄，不用另外配。
+					type: 'slider',
+					key: COLUMN_WIDTH_KEY,
+					displayName: t('columnWidth'),
+					min: 200,
+					max: 600,
+					step: 20,
+					default: DEFAULT_COLUMN_WIDTH,
+				},
+				{
+					// 看板最高能到多少。超过就在卡片列表里滚，不再把列撑长。
+					type: 'slider',
+					key: COLUMN_HEIGHT_KEY,
+					displayName: t('columnHeight'),
+					min: 200,
+					max: 1600,
+					step: 20,
+					default: DEFAULT_COLUMN_HEIGHT,
+				},
+				{
 					// 最多画到第几级标题，超过的直接不画。0 = 整个大纲不渲染。
 					type: 'slider',
 					key: HEADING_DEPTH_KEY,
@@ -113,6 +145,10 @@ export class RefineBasesView extends BasesView implements HoverParent {
 	outlineRootId: BasesPropertyId | null = null;
 	/** 大纲折叠开关上显示的文字。 */
 	outlineLabel = '';
+	/** 看板默认宽度（px）。每次重建时从选项里刷新。 */
+	columnWidth = DEFAULT_COLUMN_WIDTH;
+	/** 看板最大高度（px）。每次重建时从选项里刷新。 */
+	columnHeight = DEFAULT_COLUMN_HEIGHT;
 	/**
 	 * 每篇笔记的大纲开合状态（true = 展开）。
 	 * 没记录的走 outlineAutoExpand。放实例上 —— 模块级变量会让分屏的多个视图互相串。
@@ -153,6 +189,14 @@ export class RefineBasesView extends BasesView implements HoverParent {
 		this.outlineLabel =
 			typeof label === 'string' && label.trim() !== '' ? label : t('outline');
 
+		const width: unknown = this.config.get(COLUMN_WIDTH_KEY);
+		this.columnWidth =
+			typeof width === 'number' && width > 0 ? width : DEFAULT_COLUMN_WIDTH;
+
+		const height: unknown = this.config.get(COLUMN_HEIGHT_KEY);
+		this.columnHeight =
+			typeof height === 'number' && height > 0 ? height : DEFAULT_COLUMN_HEIGHT;
+
 		const { properties, badDepth } = this.readNestConfig();
 
 		// 跟上一轮要画的东西一模一样 —— 一个 DOM 都不碰。
@@ -161,6 +205,16 @@ export class RefineBasesView extends BasesView implements HoverParent {
 		const signature = this.renderSignature(properties, badDepth);
 		if (signature === this.lastSignature) return;
 		this.lastSignature = signature;
+
+		// 宽高都走 CSS 变量，设在容器上就会继承给里面所有看板
+		this.containerEl.style.setProperty(
+			'--refine-column-width',
+			`${String(this.columnWidth)}px`,
+		);
+		this.containerEl.style.setProperty(
+			'--refine-column-max-height',
+			`${String(this.columnHeight)}px`,
+		);
 
 		// 先在游离节点里画完，再一次性换进去 —— 避免「先清空、再慢慢长出来」的闪烁
 		const staging = createDiv();
@@ -201,7 +255,7 @@ export class RefineBasesView extends BasesView implements HoverParent {
 				.map((entry) => `${entry.property}:${entry.direction}`)
 				.join(','),
 			badDepth ?? '',
-			`${String(this.outlineDepth)}|${String(this.outlineAutoExpand)}|${this.outlineRootId ?? ''}|${this.outlineLabel}`,
+			`${String(this.outlineDepth)}|${String(this.outlineAutoExpand)}|${this.outlineRootId ?? ''}|${this.outlineLabel}|${String(this.columnWidth)}|${String(this.columnHeight)}`,
 		];
 
 		// 属性值也算进去：公式可能引用别的文件，光看 mtime 会漏掉那种变化
