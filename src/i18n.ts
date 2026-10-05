@@ -14,6 +14,8 @@ import { getLanguage } from 'obsidian';
 
 const EN = {
 	outline: 'Outline',
+	// 视图在选择器里的显示名。只有日语翻译成片假名，其余语言故意落回这个
+	viewName: 'Refine',
 	outlineLabel: 'Outline label',
 	nestDepth: 'Nest depth',
 	numberPlaceholder: 'number',
@@ -27,9 +29,6 @@ const EN = {
 		'Too much to draw — {entries} notes across {boards} boards (limit {limit}). Narrow the filters, or lower Nest depth.',
 	badNestDepth:
 		'Nest depth expects a whole number — "{value}" was ignored, nesting by every sort field instead.',
-	depthReminder5: 'Five levels deep.',
-	depthReminder8: 'Eight levels. The notes were supposed to be flat.',
-	depthReminder12: 'Twelve levels. This is no longer a board, it is a tower.',
 };
 
 /** 所有文案的 key —— 英文表的键名。 */
@@ -50,9 +49,6 @@ const ZH: Dictionary = {
 	columnHeight: '看板高度',
 	tooMuchToDraw: '要画的东西太多了 —— {entries} 条笔记、{boards} 个看板（上限 {limit}）。缩小筛选范围，或者调低嵌套层数。',
 	badNestDepth: '嵌套层数要填整数 —— 已忽略 "{value}"，改成按全部排序字段嵌套。',
-	depthReminder5: '已经五层了。',
-	depthReminder8: '八层。笔记本来是平铺的。',
-	depthReminder12: '十二层。这已经不是看板，是塔。',
 };
 
 const ZH_TW: Dictionary = {
@@ -68,13 +64,11 @@ const ZH_TW: Dictionary = {
 	columnHeight: '看板高度',
 	tooMuchToDraw: '要畫的東西太多了 —— {entries} 條筆記、{boards} 個看板（上限 {limit}）。縮小篩選範圍，或調低巢狀層數。',
 	badNestDepth: '巢狀層數需要整數 —— 已忽略 "{value}"，改為以全部排序欄位進行巢狀。',
-	depthReminder5: '已經五層了。',
-	depthReminder8: '八層。筆記本來是平鋪的。',
-	depthReminder12: '十二層。這已經不是看板，是塔。',
 };
 
 const JA: Dictionary = {
 	outline: 'アウトライン',
+	viewName: 'リファイン',
 	outlineLabel: 'アウトラインのラベル',
 	nestDepth: 'ネストの深さ',
 	numberPlaceholder: '数値',
@@ -88,9 +82,6 @@ const JA: Dictionary = {
 		'描画量が多すぎます —— {entries} 件のノート、{boards} 個のボード（上限 {limit}）。フィルタを絞るか、ネストの深さを下げてください。',
 	badNestDepth:
 		'ネストの深さは整数で指定してください —— "{value}" は無視し、すべての並べ替え項目でネストします。',
-	depthReminder5: 'すでに 5 階層。',
-	depthReminder8: '8 階層。ノートは平らなはずだったのに。',
-	depthReminder12: '12 階層。これはもうボードではなく塔です。',
 };
 
 const DICTIONARIES: ReadonlyMap<string, Dictionary> = new Map([

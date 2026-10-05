@@ -10,7 +10,6 @@ import { renderBoard } from './board';
 import { initLanguage, t } from './i18n';
 
 export const REFINE_VIEW_TYPE = 'refine-view';
-export const REFINE_NAME = 'Ref:iИe';
 
 /** 视图选项 key：排序列表的前几项拿来当嵌套层级。 */
 const NEST_DEPTH_KEY = 'nest-depth';
@@ -47,17 +46,21 @@ export default class RevViewPlugin extends Plugin {
 		// 最先跑 —— 后面所有 t() 都靠它
 		initLanguage();
 
+		// 视图在选择器里显示的名字。按界面语言取，正常就是 Refine（日语片假名）。
+		const viewName = t('viewName');
+
 		// 把本视图注册成 hover-link 事件的发射源 —— Page preview 核心插件只认识
-		// 注册过的 source，卡片悬停才会弹预览。display 会出现在它的设置里。
+		// 注册过的 source，卡片悬停才会弹预览。
+		// display 会出现在它的设置里，官方说这个字段应该匹配「插件」显示名，不是视图名。
 		this.registerHoverLinkSource(REFINE_VIEW_TYPE, {
-			display: REFINE_NAME,
+			display: this.manifest.name,
 			// true = 默认要按住 Mod（Ctrl/Cmd）才弹，跟 Obsidian 原版链接一致。
 			// 用户可以在 Page preview 的设置里单独给这个来源关掉。
 			defaultMod: true,
 		});
 
 		this.registerBasesView(REFINE_VIEW_TYPE, {
-			name: REFINE_NAME,
+			name: viewName,
 			icon: 'lucide-notebook-pen',
 			factory: (controller, containerEl) => {
 				return new RefineBasesView(controller, containerEl);

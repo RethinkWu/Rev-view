@@ -44,16 +44,6 @@ export interface BoardHost extends HoverParent {
 }
 
 /**
- * 层数越深越离谱，到这些档位各提醒一句。
- * 一层都没到就哪个都不显示。
- */
-const DEPTH_REMINDERS: ReadonlyArray<readonly [number, MessageKey]> = [
-	[5, 'depthReminder5'],
-	[8, 'depthReminder8'],
-	[12, 'depthReminder12'],
-];
-
-/**
  * 渲染预算 —— 条目数 + 看板数，超过就一个都不画。
  *
  * `onDataUpdated` 是整块拆掉重建的，所以这个数字直接决定卡不卡。
@@ -87,11 +77,6 @@ export function renderBoard(
 			}),
 		});
 		return;
-	}
-
-	const reminder = deepestReminder(properties.length);
-	if (reminder !== null) {
-		containerEl.createDiv({ cls: 'refine-reminder', text: t(reminder) });
 	}
 
 	if (properties.length === 0) {
@@ -270,11 +255,3 @@ function countBoards(
 	return total;
 }
 
-/** 取层数达到的最深那一档提醒的 key，没到第一档就返回 null。 */
-function deepestReminder(depth: number): MessageKey | null {
-	let found: MessageKey | null = null;
-	for (const [threshold, key] of DEPTH_REMINDERS) {
-		if (depth >= threshold) found = key;
-	}
-	return found;
-}

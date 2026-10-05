@@ -12,9 +12,8 @@
   overflow: hidden;
 }
 
-/* 警告 / 彩蛋，都是看板区上方的一行小字 */
-.refine-warning,
-.refine-reminder {
+/* 警告：看板区上方的一行小字 */
+.refine-warning {
   flex-shrink: 0;
   padding: 8px 16px 0;
   font-size: 0.9em;
@@ -41,10 +40,6 @@
   color: var(--text-muted);
 }
 
-.refine-reminder {
-  color: var(--text-faint);
-  font-style: italic;
-}
 
 /* ============================================
    一排并列的看板。每一层嵌套都是这个结构。
