@@ -215,6 +215,63 @@
   color: var(--text-normal);
 }
 
+/* ============================================
+   卡片上的大纲
+   整块默认折叠；展开后只出一级标题（受 Heading depth 影响），
+   每个标题自己也能折叠，点文字跳转到该标题。
+   ============================================ */
+.refine-card-outline {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--background-modifier-border);
+}
+
+.refine-outline-toggle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  font-size: 0.75em;
+  color: var(--text-muted);
+}
+
+.refine-outline-toggle:hover {
+  color: var(--text-normal);
+}
+
+.refine-outline-list {
+  margin: 4px 0 0;
+  padding-left: 0;
+  list-style: none;
+}
+
+/* 每一项按自己的标题层级缩进 —— 层级由 JS 塞进 --refine-outline-level */
+.refine-outline-item {
+  margin: 0;
+  padding-left: calc((var(--refine-outline-level, 1) - 1) * 12px);
+}
+
+.refine-outline-caret {
+  flex-shrink: 0;
+  width: 12px;
+  color: var(--text-faint);
+  user-select: none;
+}
+
+.refine-outline-text {
+  display: inline-block;
+  max-width: 100%;
+  font-size: 0.8em;
+  line-height: 1.6;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.refine-outline-text:hover {
+  color: var(--text-normal);
+  text-decoration: underline;
+}
+
 @media (max-width: 768px) {
   .refine-column {
     --refine-col-basis: 200px;

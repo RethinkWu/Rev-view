@@ -1,4 +1,12 @@
-import { App, BasesEntry, BasesPropertyId, BasesViewConfig } from 'obsidian';
+import {
+	App,
+	BasesEntry,
+	BasesPropertyId,
+	BasesViewConfig,
+	HoverParent,
+} from 'obsidian';
+import { t, type MessageKey } from './i18n';
+import { renderOutline } from './outline';
 
 /**
  * 渲染引擎：把一串 entries 按一串属性逐层分组，渲染成嵌套看板。
@@ -7,27 +15,53 @@ import { App, BasesEntry, BasesPropertyId, BasesViewConfig } from 'obsidian';
  * 所以换一种配置来源（公式字符串 / 排序字段 / ...）不用动这个文件。
  */
 
-/** 分组值为空时看板的标题。属性缺失或值是空字符串都算空，每一层都会出现。 */
-export const EMPTY_GROUP_LABEL = 'Ungroup';
+/**
+ * 分组值为空时看板的标题 key。属性缺失或值是空字符串都算空，每一层都会出现。
+ * 存 key 不存文案 —— 模块加载时 `initLanguage()` 还没跑。
+ */
+const EMPTY_GROUP_LABEL_KEY: MessageKey = 'ungroup';
 
 /**
  * 渲染看板需要视图提供的东西。
- * `BasesView` 自己就满足这个形状（它有 app 和 config），所以调用时直接传 `this`。
+ * `BasesView` 自己就满足这个形状（它有 app / config / type / hoverPopover），
+ * 所以调用时直接传 `this`。
  */
-export interface BoardHost {
+export interface BoardHost extends HoverParent {
 	app: App;
 	config: BasesViewConfig;
+	/** 视图的 type id —— 也是它在 registerHoverLinkSource 里注册的 source id。 */
+	type: string;
+	/** 大纲最多画到第几级标题。0 = 不渲染。 */
+	outlineDepth: number;
+	/** 大纲默认是否展开。 */
+	outlineAutoExpand: boolean;
+	/** 给出大纲根标题的公式属性；null = 整篇笔记。 */
+	outlineRootId: BasesPropertyId | null;
+	/** 大纲折叠开关上显示的文字。 */
+	outlineLabel: string;
+	/** 每篇笔记的大纲开合状态（true = 展开）。视图实例持有，全量重建之后仍然保留。 */
+	outlineOpen: Map<string, boolean>;
 }
 
 /**
  * 层数越深越离谱，到这些档位各提醒一句。
  * 一层都没到就哪个都不显示。
  */
-const DEPTH_REMINDERS: ReadonlyArray<readonly [number, string]> = [
-	[5, 'Five levels deep.'],
-	[8, 'Eight levels. The notes were supposed to be flat.'],
-	[12, 'Twelve levels. This is no longer a board, it is a tower.'],
+const DEPTH_REMINDERS: ReadonlyArray<readonly [number, MessageKey]> = [
+	[5, 'depthReminder5'],
+	[8, 'depthReminder8'],
+	[12, 'depthReminder12'],
 ];
+
+/**
+ * 渲染预算 —— 条目数 + 看板数，超过就一个都不画。
+ *
+ * `onDataUpdated` 是整块拆掉重建的，所以这个数字直接决定卡不卡。
+ * 2000 大概对应一两万个 DOM 节点，那个量级上重建已经能感觉到停顿。
+ * 真正危险的是没加过滤的 base（官方指南也专门警告过这点）：上万条笔记乘上层数，
+ * 会在一次重建里把界面冻住。
+ */
+const RENDER_BUDGET = 2000;
 
 /**
  * 把 entries 渲染成嵌套看板，挂在 containerEl 下。
@@ -41,9 +75,23 @@ export function renderBoard(
 	properties: BasesPropertyId[],
 	host: BoardHost,
 ): void {
+	// 先只数一遍要画多少东西 —— 纯计数、不建 DOM。超了就罢工，免得把界面冻住。
+	const boards = countBoards(entries, properties, 0, RENDER_BUDGET);
+	if (entries.length + boards > RENDER_BUDGET) {
+		containerEl.createDiv({
+			cls: 'refine-warning',
+			text: t('tooMuchToDraw', {
+				entries: String(entries.length),
+				boards: String(boards),
+				limit: String(RENDER_BUDGET),
+			}),
+		});
+		return;
+	}
+
 	const reminder = deepestReminder(properties.length);
 	if (reminder !== null) {
-		containerEl.createDiv({ cls: 'refine-reminder', text: reminder });
+		containerEl.createDiv({ cls: 'refine-reminder', text: t(reminder) });
 	}
 
 	if (properties.length === 0) {
@@ -70,7 +118,7 @@ function renderLevel(
 	const columnsEl = parentEl.createDiv('refine-columns');
 	for (const [label, bucket] of bucketEntries(entries, property)) {
 		const columnEl = columnsEl.createDiv('refine-column');
-		columnEl.createEl('h3', { text: label ?? EMPTY_GROUP_LABEL });
+		columnEl.createEl('h3', { text: label ?? t(EMPTY_GROUP_LABEL_KEY) });
 
 		if (depth + 1 < properties.length) {
 			// 标一下：这一列装的是子看板，宽度要跟着子看板那一排走
@@ -90,7 +138,7 @@ function renderFlat(
 ): void {
 	const columnsEl = parentEl.createDiv('refine-columns');
 	const columnEl = columnsEl.createDiv('refine-column');
-	columnEl.createEl('h3', { text: EMPTY_GROUP_LABEL });
+	columnEl.createEl('h3', { text: t(EMPTY_GROUP_LABEL_KEY) });
 	renderCards(columnEl, entries, host);
 }
 
@@ -111,6 +159,29 @@ function renderCards(
  * 顺序、显示名、以及哪个属性打头，全部来自 Properties 菜单（config.getOrder()）。
  */
 function renderCard(cardEl: HTMLElement, entry: BasesEntry, host: BoardHost): void {
+	// 整张卡片可点 —— 跳到这条笔记。带 Ctrl/Cmd 时开新标签页。
+	cardEl.addEventListener('click', (evt) => {
+		void host.app.workspace
+			.getLeaf(evt.ctrlKey || evt.metaKey)
+			.openFile(entry.file);
+	});
+
+	// 悬停弹笔记预览。弹窗本身由 Page preview 核心插件负责，我们只发事件。
+	cardEl.addEventListener('mouseover', (evt) => {
+		// 在卡片内部移动时 relatedTarget 还落在卡片里 —— 别重复发
+		if (evt.relatedTarget instanceof Node && cardEl.contains(evt.relatedTarget)) {
+			return;
+		}
+		host.app.workspace.trigger('hover-link', {
+			event: evt,
+			source: host.type,
+			hoverParent: host,
+			targetEl: cardEl,
+			linktext: entry.file.path,
+			sourcePath: '',
+		});
+	});
+
 	const [titleId, ...propertyIds] = host.config.getOrder();
 
 	renderTitle(cardEl, entry, titleId, host);
@@ -129,6 +200,9 @@ function renderCard(cardEl: HTMLElement, entry: BasesEntry, host: BoardHost): vo
 			host.app.renderContext,
 		);
 	}
+
+	// 卡片底部的大纲。没有标题就整块不出现。
+	renderOutline(cardEl.createDiv('refine-card-outline'), entry, host);
 }
 
 /** 标题位：只画值，不画 display name。Properties 菜单是空的就没有标题。 */
@@ -168,11 +242,39 @@ function bucketEntries(
 	return buckets;
 }
 
-/** 取层数达到的最深那一档提醒，没到第一档就返回 null。 */
-function deepestReminder(depth: number): string | null {
-	let found: string | null = null;
-	for (const [threshold, text] of DEPTH_REMINDERS) {
-		if (depth >= threshold) found = text;
+/**
+ * 数一遍会画出多少个看板。
+ * 结构跟 renderLevel 一一对应，但不建任何 DOM —— 分组本身很快，贵的是往页面里塞。
+ * 一旦超过预算就立刻收手，不再往下数。
+ */
+function countBoards(
+	entries: BasesEntry[],
+	properties: BasesPropertyId[],
+	depth: number,
+	budget: number,
+): number {
+	// 光条目就已经超预算了，不必再数
+	if (entries.length > budget) return budget + 1;
+
+	const property = properties[depth];
+	if (property === undefined) return 1; // 平铺时的那一个 Ungroup 看板
+
+	let total = 0;
+	for (const [, bucket] of bucketEntries(entries, property)) {
+		total += 1;
+		if (depth + 1 < properties.length) {
+			total += countBoards(bucket, properties, depth + 1, budget);
+		}
+		if (total > budget) return total; // 已经超了，数不准也无所谓
+	}
+	return total;
+}
+
+/** 取层数达到的最深那一档提醒的 key，没到第一档就返回 null。 */
+function deepestReminder(depth: number): MessageKey | null {
+	let found: MessageKey | null = null;
+	for (const [threshold, key] of DEPTH_REMINDERS) {
+		if (depth >= threshold) found = key;
 	}
 	return found;
 }

@@ -1,5 +1,13 @@
-import { BasesPropertyId, BasesView, Plugin, QueryController } from 'obsidian';
+import {
+	BasesPropertyId,
+	BasesView,
+	HoverParent,
+	HoverPopover,
+	Plugin,
+	QueryController,
+} from 'obsidian';
 import { renderBoard } from './board';
+import { initLanguage, t } from './i18n';
 
 export const REFINE_VIEW_TYPE = 'refine-view';
 export const REFINE_NAME = 'Ref:iИe';
@@ -7,8 +15,35 @@ export const REFINE_NAME = 'Ref:iИe';
 /** 视图选项 key：排序列表的前几项拿来当嵌套层级。 */
 const NEST_DEPTH_KEY = 'nest-depth';
 
+/** 视图选项 key：大纲最多渲染到第几级标题。0 = 不渲染。 */
+const HEADING_DEPTH_KEY = 'heading-depth';
+
+/** 视图选项 key：给出大纲根标题的公式属性。没选 = 整篇笔记。 */
+const OUTLINE_ROOT_KEY = 'outline-root';
+
+/** 视图选项 key：大纲默认就是展开的。 */
+const OUTLINE_EXPANDED_KEY = 'outline-expanded';
+
+/** 视图选项 key：大纲折叠开关上显示的文字。 */
+const OUTLINE_LABEL_KEY = 'outline-label';
+
+/** 数据变动后等这么久再重建。Bases 在任何 vault 变动时都会回调，防抖掉连续触发。 */
+const RENDER_DELAY_MS = 100;
+
 export default class RevViewPlugin extends Plugin {
 	async onload() {
+		// 最先跑 —— 后面所有 t() 都靠它
+		initLanguage();
+
+		// 把本视图注册成 hover-link 事件的发射源 —— Page preview 核心插件只认识
+		// 注册过的 source，卡片悬停才会弹预览。display 会出现在它的设置里。
+		this.registerHoverLinkSource(REFINE_VIEW_TYPE, {
+			display: REFINE_NAME,
+			// true = 默认要按住 Mod（Ctrl/Cmd）才弹，跟 Obsidian 原版链接一致。
+			// 用户可以在 Page preview 的设置里单独给这个来源关掉。
+			defaultMod: true,
+		});
+
 		this.registerBasesView(REFINE_VIEW_TYPE, {
 			name: REFINE_NAME,
 			icon: 'lucide-notebook-pen',
@@ -24,35 +59,174 @@ export default class RevViewPlugin extends Plugin {
 					// 把 data 排好序了，我们从不重排，所以效果落在最内层的卡片顺序上。
 					type: 'text',
 					key: NEST_DEPTH_KEY,
-					displayName: 'Nest depth',
-					placeholder: 'number',
+					displayName: t('nestDepth'),
+					placeholder: t('numberPlaceholder'),
+				},
+				{
+					// 和 Nest by 一个套路：公式属性的值就是根标题的文字。
+					// 这样根可以每篇笔记不同（公式能引用 frontmatter），不用手打。
+					// 没选 = 整篇笔记的标题都出。
+					type: 'property',
+					key: OUTLINE_ROOT_KEY,
+					displayName: t('outlineRoot'),
+					filter: (propertyId) => propertyId.startsWith('formula.'),
+				},
+				{
+					// 大纲折叠开关上显示的文字。用 placeholder 而不是 default ——
+					// 留空就跟着界面语言走，一旦填了才会被固定进 .base 文件。
+					type: 'text',
+					key: OUTLINE_LABEL_KEY,
+					displayName: t('outlineLabel'),
+					placeholder: t('outline'),
+				},
+				{
+					// 默认就把大纲展开，不用一张张点。单张卡片的开合仍然记得住。
+					type: 'toggle',
+					key: OUTLINE_EXPANDED_KEY,
+					displayName: t('autoExpandOutline'),
+					default: false,
+				},
+				{
+					// 最多画到第几级标题，超过的直接不画。0 = 整个大纲不渲染。
+					type: 'slider',
+					key: HEADING_DEPTH_KEY,
+					displayName: t('headingDepth'),
+					min: 0,
+					max: 6,
+					step: 1,
+					default: 1,
 				},
 			],
 		});
 	}
 }
 
-export class RefineBasesView extends BasesView {
+export class RefineBasesView extends BasesView implements HoverParent {
 	readonly type = REFINE_VIEW_TYPE;
+	hoverPopover: HoverPopover | null = null;
+
+	/** 大纲最多画到第几级标题。0 = 不渲染。每次重建时从选项里刷新。 */
+	outlineDepth = 1;
+	/** 大纲默认是否展开。每次重建时从选项里刷新。 */
+	outlineAutoExpand = false;
+	/** 给出根标题的公式属性；null = 整篇笔记。 */
+	outlineRootId: BasesPropertyId | null = null;
+	/** 大纲折叠开关上显示的文字。 */
+	outlineLabel = '';
+	/**
+	 * 每篇笔记的大纲开合状态（true = 展开）。
+	 * 没记录的走 outlineAutoExpand。放实例上 —— 模块级变量会让分屏的多个视图互相串。
+	 */
+	readonly outlineOpen = new Map<string, boolean>();
+
 	private containerEl: HTMLElement;
+	private renderTimer: number | null = null;
+	/** 上一轮画出来的指纹。一样就跳过重建。 */
+	private lastSignature = '';
 
 	constructor(controller: QueryController, parentEl: HTMLElement) {
 		super(controller);
 		this.containerEl = parentEl.createDiv('refine-container');
+
+		this.register(() => {
+			if (this.renderTimer !== null) window.clearTimeout(this.renderTimer);
+		});
 	}
 
+	/**
+	 * Bases 在任何 vault 变动时都会回调这里。立刻重建会在连续改动（比如打字）时
+	 * 反复把整个看板拆掉重来，所以延后一拍，连续触发只重建一次。
+	 */
 	public onDataUpdated(): void {
-		this.containerEl.empty();
+		if (this.renderTimer !== null) window.clearTimeout(this.renderTimer);
+		this.renderTimer = window.setTimeout(() => {
+			this.renderTimer = null;
+			this.render();
+		}, RENDER_DELAY_MS);
+	}
+
+	private render(): void {
+		this.outlineDepth = this.readOutlineDepth();
+		this.outlineAutoExpand = this.config.get(OUTLINE_EXPANDED_KEY) === true;
+		this.outlineRootId = this.config.getAsPropertyId(OUTLINE_ROOT_KEY);
+		const label: unknown = this.config.get(OUTLINE_LABEL_KEY);
+		this.outlineLabel =
+			typeof label === 'string' && label.trim() !== '' ? label : t('outline');
 
 		const { properties, badDepth } = this.readNestConfig();
+
+		// 跟上一轮要画的东西一模一样 —— 一个 DOM 都不碰。
+		// Bases 在任何 vault 变动时都会回调（实测：编辑一篇不在 base 里的笔记也会），
+		// 这一步挡掉绝大多数无谓重建。
+		const signature = this.renderSignature(properties, badDepth);
+		if (signature === this.lastSignature) return;
+		this.lastSignature = signature;
+
+		// 先在游离节点里画完，再一次性换进去 —— 避免「先清空、再慢慢长出来」的闪烁
+		const staging = createDiv();
+
 		if (badDepth !== null) {
-			this.containerEl.createDiv({
+			staging.createDiv({
 				cls: 'refine-warning',
-				text: `Nest depth expects a whole number — "${badDepth}" was ignored, nesting by every sort field instead.`,
+				text: t('badNestDepth', { value: badDepth }),
 			});
 		}
 
-		renderBoard(this.containerEl, this.data.data, properties, this);
+		renderBoard(staging, this.data.data, properties, this);
+
+		// 逐个搬过去（append 会把它从 staging 里摘下来，循环自然收敛）
+		this.containerEl.empty();
+		while (staging.firstChild !== null) {
+			this.containerEl.append(staging.firstChild);
+		}
+	}
+
+	/**
+	 * 这一轮要画的东西的指纹：条目（路径 + 修改时间 + 用到的属性值）、顺序，
+	 * 以及所有会影响输出的选项。跟上一轮一样就整次跳过。
+	 */
+	private renderSignature(
+		properties: BasesPropertyId[],
+		badDepth: string | null,
+	): string {
+		const order = this.config.getOrder();
+		const parts: string[] = [
+			properties.join(','),
+			// 连显示名一起 —— 用户在 base 里改了属性显示名，卡片上的标签也得跟着变
+			order
+				.map((id) => `${id}=${this.config.getDisplayName(id)}`)
+				.join(','),
+			this.config
+				.getSort()
+				.map((entry) => `${entry.property}:${entry.direction}`)
+				.join(','),
+			badDepth ?? '',
+			`${String(this.outlineDepth)}|${String(this.outlineAutoExpand)}|${this.outlineRootId ?? ''}|${this.outlineLabel}`,
+		];
+
+		// 属性值也算进去：公式可能引用别的文件，光看 mtime 会漏掉那种变化
+		const valueProperties = [
+			...new Set([
+				...properties,
+				...order,
+				...(this.outlineRootId === null ? [] : [this.outlineRootId]),
+			]),
+		];
+
+		for (const entry of this.data.data) {
+			parts.push(`${entry.file.path}@${String(entry.file.stat.mtime)}`);
+			for (const propertyId of valueProperties) {
+				const value = entry.getValue(propertyId);
+				parts.push(value === null ? '' : value.toString());
+			}
+		}
+		return parts.join('\u0000');
+	}
+
+	/** 大纲最多画到第几级标题。0 = 整个不渲染；读不到就退回 1。 */
+	private readOutlineDepth(): number {
+		const depth = Number(this.config.get(HEADING_DEPTH_KEY));
+		return Number.isInteger(depth) && depth >= 0 ? depth : 1;
 	}
 
 	/**
