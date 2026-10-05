@@ -7,9 +7,6 @@ export const REFINE_NAME = 'Ref:iИe';
 /** 视图选项 key：排序列表的前几项拿来当嵌套层级。 */
 const NEST_DEPTH_KEY = 'nest-depth';
 
-/** 「层数」的可选值：全部排序字段都当嵌套层级。 */
-const DEPTH_ALL = 'all';
-
 export default class RevViewPlugin extends Plugin {
 	async onload() {
 		this.registerBasesView(REFINE_VIEW_TYPE, {
@@ -23,21 +20,12 @@ export default class RevViewPlugin extends Plugin {
 					// 嵌套层级直接取自 Bases 自己的 Sort 菜单 —— 那里的顺序就是分组顺序，
 					// 而且每个字段都是官方的属性选择器，不需要任何字符串匹配。
 					//
-					// 排在「嵌套层数」之外的排序字段依然生效：Bases 已经按它们把 data
-					// 排好序了，我们从不重排，所以效果会落在最内层的卡片顺序上。
-					type: 'dropdown',
+					// 层数决定排序列表里前几项拿来分组，剩下的仍然纯排序：Bases 已经按它们
+					// 把 data 排好序了，我们从不重排，所以效果落在最内层的卡片顺序上。
+					type: 'text',
 					key: NEST_DEPTH_KEY,
 					displayName: 'Nest depth',
-					default: DEPTH_ALL,
-					options: {
-						[DEPTH_ALL]: 'All sort fields',
-						'1': 'First sort field only',
-						'2': 'First 2 sort fields',
-						'3': 'First 3 sort fields',
-						'4': 'First 4 sort fields',
-						'5': 'First 5 sort fields',
-						'6': 'First 6 sort fields',
-					},
+					placeholder: 'number',
 				},
 			],
 		});
@@ -55,28 +43,40 @@ export class RefineBasesView extends BasesView {
 
 	public onDataUpdated(): void {
 		this.containerEl.empty();
-		renderBoard(
-			this.containerEl,
-			this.data.data,
-			this.readNestProperties(),
-			(cardEl, entry) => {
-				cardEl.createEl('h4', { text: entry.file.name });
-			},
-		);
+
+		const { properties, badDepth } = this.readNestConfig();
+		if (badDepth !== null) {
+			this.containerEl.createDiv({
+				cls: 'refine-warning',
+				text: `Nest depth expects a whole number — "${badDepth}" was ignored, nesting by every sort field instead.`,
+			});
+		}
+
+		renderBoard(this.containerEl, this.data.data, properties, (cardEl, entry) => {
+			cardEl.createEl('h4', { text: entry.file.name });
+		});
 	}
 
 	/**
 	 * 嵌套层级 = 排序菜单里前 N 个字段。
-	 * 没配排序时返回空数组 —— 上层会平铺成一个 Ungroup 看板。
+	 * 没填层数就用全部；填的不是非负整数就当作没填，并把原样值交回上层报错。
 	 */
-	private readNestProperties(): BasesPropertyId[] {
+	private readNestConfig(): {
+		properties: BasesPropertyId[];
+		badDepth: string | null;
+	} {
 		const sorted = this.config.getSort().map((entry) => entry.property);
-		const selected: unknown = this.config.get(NEST_DEPTH_KEY);
+		const raw: unknown = this.config.get(NEST_DEPTH_KEY);
 
-		if (typeof selected !== 'string' || selected === DEPTH_ALL) return sorted;
+		if (typeof raw !== 'string' || raw.trim() === '') {
+			return { properties: sorted, badDepth: null };
+		}
 
-		const depth = Number.parseInt(selected, 10);
-		if (!Number.isFinite(depth)) return sorted;
-		return sorted.slice(0, depth);
+		const text = raw.trim();
+		const depth = Number(text);
+		if (!Number.isInteger(depth) || depth < 0) {
+			return { properties: sorted, badDepth: text };
+		}
+		return { properties: sorted.slice(0, depth), badDepth: null };
 	}
 }
