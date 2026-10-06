@@ -1,9 +1,9 @@
 /* ============================================
-   Rev:View — 嵌套看板视图
-   所有类名以 refine- 为前缀，避免污染全局样式
+   Rev:View — nested board view.
+   Every class is prefixed with "refine-" so nothing leaks into global styles.
    ============================================ */
 
-/* 根容器：纵向排列「提示条 + 看板区」 */
+/* Root: the warning strip on top, the boards below. */
 .refine-container {
   display: flex;
   flex-direction: column;
@@ -12,19 +12,14 @@
   overflow: hidden;
 }
 
-/* 警告：看板区上方的一行小字 */
+/* Warning line above the boards. */
 .refine-warning {
   flex-shrink: 0;
   padding: 8px 16px 0;
   font-size: 0.9em;
-  color: var(--text-muted);
-}
-
-.refine-warning {
   color: var(--text-error);
 }
 
-/* 对不上的条目清单 */
 .refine-warning ul {
   margin: 4px 0 0;
   padding-left: 1.4em;
@@ -34,7 +29,7 @@
   margin: 0;
 }
 
-/* 最后那行「该怎么改」弱化一点，别和错误本身抢注意力 */
+/* The "how to fix it" line, muted so it doesn't compete with the error itself. */
 .refine-warning p {
   margin: 4px 0 0;
   color: var(--text-muted);
@@ -42,7 +37,7 @@
 
 
 /* ============================================
-   一排并列的看板。每一层嵌套都是这个结构。
+   A row of boards. Every nesting level has this shape.
    ============================================ */
 .refine-columns {
   display: flex;
@@ -52,7 +47,7 @@
   box-sizing: border-box;
 }
 
-/* 根那一层：占满剩余高度，自己滚动 */
+/* The root row: takes the remaining height and scrolls on its own. */
 .refine-container > .refine-columns {
   flex: 1;
   min-height: 0;
@@ -60,7 +55,7 @@
   overflow: auto;
 }
 
-/* 嵌套在某一列里的那一层：占满该列剩余高度，自己滚动 */
+/* A row nested inside a column: takes that column's remaining height. */
 .refine-column > .refine-columns {
   flex: 1;
   min-height: 0;
@@ -69,45 +64,43 @@
 }
 
 /* ============================================
-   看板（一列 = 一个分组）
+   A board (one column = one group)
    ============================================ */
 .refine-column {
-  /* 列宽只由 --refine-column-width 一个值推出来 —— 边界值都用 calc 按比例算，
-     所以视图选项里那根滑条一拖，上下限会跟着一起动。
-     这个变量由 JS 设在内层容器上（内联样式），会继承给所有看板。 */
+  /* One value drives the width: min/max are calc'd from it, so the column-width
+     slider moves all three together. JS sets --refine-column-width inline on
+     the container, and it inherits down to every board. */
   --refine-col-basis: var(--refine-column-width, 340px);
   --refine-col-min: calc(var(--refine-col-basis) * 0.65);
   --refine-col-max: calc(var(--refine-col-basis) * 1.5);
 
   display: flex;
   flex-direction: column;
-  /* 基准可伸可缩：排得下就长，最多长到 --refine-col-max；
-     排不下就缩，缩到 --refine-col-min 为止，然后整排横向滚动 */
+  /* Grows to --refine-col-max when there is room, shrinks to --refine-col-min
+     when there isn't, and the row scrolls past that. */
   flex: 1 1 var(--refine-col-basis);
   min-width: var(--refine-col-min);
   max-width: var(--refine-col-max);
 
-  /* 看板最高多少，超过就在卡片列表里滚。由「Column height」滑条驱动
-     （JS 设在容器上的内联变量）；没给值就退回撑满视图。 */
+  /* Driven by the Column height slider; unset means fill the view. */
   max-height: var(--refine-column-max-height, 100%);
   background-color: var(--background-secondary);
   border-radius: 10px;
   padding: 12px;
   box-sizing: border-box;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-  /* 列本身不滚动，让里面的卡片列表 / 子看板滚动 */
+  /* The column itself never scrolls — the card list and sub-boards do. */
   overflow: hidden;
 }
 
-/* 装着子看板的列：宽度由里面的子看板撑开（max-content），
-   但不超过 --refine-col-max；超了就让里面那一排自己横向滚动 */
+/* A column holding sub-boards: sized to fit them, up to --refine-col-max. */
 .refine-column--parent {
   flex: 0 0 auto;
   width: max-content;
 }
 
-/* 嵌套层级：整档收窄 + 底色换一下，方便看清层次。
-   只改 basis —— min/max 是上面用 calc 从 basis 推出来的，会自动跟着收窄。 */
+/* Nested levels are narrower and use a different background, to read as depth.
+   Only the basis changes; min/max follow it through the calc above. */
 .refine-column .refine-column {
   --refine-col-basis: calc(var(--refine-column-width, 340px) * 0.7);
   padding: 10px;
@@ -115,7 +108,7 @@
   box-shadow: none;
 }
 
-/* 看板标题（分组名） */
+/* Board title (the group name). */
 .refine-column > h3 {
   margin: 0 0 12px 0;
   padding-bottom: 8px;
@@ -123,34 +116,35 @@
   font-weight: 600;
   color: var(--text-muted);
   border-bottom: 2px solid var(--interactive-accent);
-  flex-shrink: 0;           /* 标题不参与滚动 */
+  flex-shrink: 0;           /* the title does not scroll with the cards */
 }
 
 /* ============================================
-   卡片列表（最内层）
+   The card list (innermost level)
    ============================================ */
 .refine-card-list {
   display: flex;
   flex-direction: column;
   overflow-y: auto;
   flex: 1;
-  min-height: 0;            /* Flex 子元素滚动的关键 */
+  min-height: 0;            /* what lets a flex child scroll */
 }
 
 /* ============================================
-   卡片
+   Cards
    ============================================ */
 .refine-card {
-  /* 卡片自己也有高度上限 —— 属性多、大纲长的时候在卡片内部滚，不把整列撑爆 */
+  /* Cards have their own ceiling, so a long property list or outline scrolls
+     inside the card instead of stretching the column. */
   --refine-card-max-height: 360px;
 
-  /* 一旦卡片变成滚动容器，它在 flex 里的自动最小高度会变成 0，
-     不加这行会被兄弟卡片挤扁 */
+  /* A scroll container gets an automatic min-height of 0 in flex, which would
+     let sibling cards squash it without this. */
   flex-shrink: 0;
 
   max-height: var(--refine-card-max-height);
   overflow-y: auto;
-  /* 卡片滚到底就停住，不要接着带动外面的卡片列表 */
+  /* Reaching the bottom of a card must not carry on into the list behind it. */
   overscroll-behavior: contain;
 
   background-color: var(--background-primary);
@@ -164,15 +158,15 @@
 }
 
 /* ============================================
-   滚动条：直接不显示
-   滚动本身照常工作，只是没有可见的条。
-   用标准属性而不是 ::-webkit-scrollbar —— 实测主题会把后者整个压掉。
+   Scrollbars are hidden outright — scrolling still works, just invisibly.
+   Uses the standard properties rather than ::-webkit-scrollbar, which themes
+   were observed to override entirely.
    ============================================ */
 .refine-container .refine-columns,
 .refine-container .refine-card-list,
 .refine-container .refine-card {
   scrollbar-width: none;
-  /* 兜底：万一 scrollbar-width 被别的规则盖掉，颜色这层还能让它隐形 */
+  /* Fallback: if scrollbar-width loses to another rule, the colours still hide it. */
   scrollbar-color: transparent transparent;
 }
 
@@ -186,10 +180,9 @@
 }
 
 /* ============================================
-   卡片内容
-   结构照抄 Bases 内置卡片视图：
-     标题（Properties 第一项的值，不带标签）
-     属性名（小字号、灰）+ 属性值 —— 每组一块
+   Card contents — same layout as the built-in Bases card view:
+   a bare title (the first Properties entry), then one block per property with
+   the display name above a smaller value.
    ============================================ */
 .refine-card-title {
   margin-bottom: 8px;
@@ -206,7 +199,7 @@
   margin-bottom: 0;
 }
 
-/* 属性名：在值的上面，字号更小 */
+/* Property name: above the value, smaller. */
 .refine-card-property-name {
   margin-bottom: 2px;
   font-size: 0.75em;
@@ -219,9 +212,9 @@
 }
 
 /* ============================================
-   卡片上的大纲
-   整块默认折叠；展开后只出一级标题（受 Heading depth 影响），
-   每个标题自己也能折叠，点文字跳转到该标题。
+   The outline on a card.
+   Collapsed by default. When open it shows headings down to the Heading depth
+   option; each heading jumps to itself when clicked.
    ============================================ */
 .refine-card-outline {
   margin-top: 10px;
@@ -248,7 +241,7 @@
   list-style: none;
 }
 
-/* 每一项按自己的标题层级缩进 —— 层级由 JS 塞进 --refine-outline-level */
+/* Each entry is indented by its heading level, which JS sets as the variable. */
 .refine-outline-item {
   margin: 0;
   padding-left: calc((var(--refine-outline-level, 1) - 1) * 12px);
@@ -275,9 +268,8 @@
   text-decoration: underline;
 }
 
-/* 窄屏整体再收一档。
-   注意改的是 --refine-col-basis 而不是 --refine-column-width —— 后者是内联样式，
-   优先级比媒体查询高，改不动。 */
+/* Narrow screens step down one notch. This changes --refine-col-basis rather
+   than --refine-column-width: the latter is inline and outranks a media query. */
 @media (max-width: 768px) {
   .refine-column {
     --refine-col-basis: calc(var(--refine-column-width, 340px) * 0.7);

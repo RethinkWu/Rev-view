@@ -1,20 +1,9 @@
 import { getLanguage } from 'obsidian';
 
-/**
- * 极简 i18n：一张英文表当基准（key 也是英文），别的语言覆盖其中一部分，
- * 没覆盖的自动落回英文。
- *
- * 加一条文案 = 往英文表加一个 key，其他语言表里可选地补上。
- * 加一种语言 = 多一个表、往 DICTIONARIES 里加一行。
- *
- * 注意：**不要在模块级常量里调 `t()`** —— 那时候 `initLanguage()` 还没跑。
- * 模块级只放 key，渲染时再翻。Bases 的选项 displayName 是在 options 回调里求值的，
- * 那时语言已经就绪，所以那里可以直接调。
- */
+/** Minimal i18n: the English table is the base, and other locales fall back to it. */
 
 const EN = {
 	outline: 'Outline',
-	// 视图在选择器里的显示名。只有日语翻译成片假名，其余语言故意落回这个
 	viewName: 'Refine',
 	outlineLabel: 'Outline label',
 	nestDepth: 'Nest depth',
@@ -31,7 +20,7 @@ const EN = {
 		'Nest depth expects a whole number — "{value}" was ignored, nesting by every sort field instead.',
 };
 
-/** 所有文案的 key —— 英文表的键名。 */
+/** Keys of the English table. */
 export type MessageKey = keyof typeof EN;
 
 type Dictionary = Partial<Record<MessageKey, string>>;
@@ -93,19 +82,18 @@ const DICTIONARIES: ReadonlyMap<string, Dictionary> = new Map([
 
 let language = 'en';
 
-/** 插件 onload 里最先调 —— 在这一步之前 `t()` 只会给英文。 */
+/** Must run before any t() call. */
 export function initLanguage(): void {
 	language = getLanguage().toLowerCase();
 }
 
-/** 取一条文案。`{name}` 会被 vars 里同名的值替换。 */
+/** Looks up a key; `{name}` in the string is filled from vars. */
 export function t(key: MessageKey, vars?: Readonly<Record<string, string>>): string {
 	const template = lookup(key);
 	return vars === undefined ? template : interpolate(template, vars);
 }
 
 function lookup(key: MessageKey): string {
-	// 先精确匹配（zh-TW），再退到主语言（zh），最后退到英文
 	const base = language.split('-')[0];
 	return (
 		DICTIONARIES.get(language)?.[key] ??

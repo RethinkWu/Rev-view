@@ -9,55 +9,50 @@ import { t, type MessageKey } from './i18n';
 import { renderOutline } from './outline';
 
 /**
- * 渲染引擎：把一串 entries 按一串属性逐层分组，渲染成嵌套看板。
- *
- * 这里只关心「怎么画」，不关心「属性列表从哪来」—— 后者由视图自己决定，
- * 所以换一种配置来源（公式字符串 / 排序字段 / ...）不用动这个文件。
+ * Turns a list of entries into nested boards, splitting them by one property
+ * per level. This file only knows how to draw; where the property list comes
+ * from is the view's business, so changing that source never touches it.
  */
 
 /**
- * 分组值为空时看板的标题 key。属性缺失或值是空字符串都算空，每一层都会出现。
- * 存 key 不存文案 —— 模块加载时 `initLanguage()` 还没跑。
+ * Label for a board whose group value is empty — a missing property and an
+ * empty string both count. Stored as a key, not text: initLanguage() has not
+ * run yet when this module loads.
  */
 const EMPTY_GROUP_LABEL_KEY: MessageKey = 'ungroup';
 
 /**
- * 渲染看板需要视图提供的东西。
- * `BasesView` 自己就满足这个形状（它有 app / config / type / hoverPopover），
- * 所以调用时直接传 `this`。
+ * What the renderer needs from the view. BasesView already matches this shape,
+ * so callers can just pass `this`.
  */
 export interface BoardHost extends HoverParent {
 	app: App;
 	config: BasesViewConfig;
-	/** 视图的 type id —— 也是它在 registerHoverLinkSource 里注册的 source id。 */
+	/** View type id — also the source id registered with registerHoverLinkSource. */
 	type: string;
-	/** 大纲最多画到第几级标题。0 = 不渲染。 */
+	/** Deepest heading level to draw in card outlines. 0 = none. */
 	outlineDepth: number;
-	/** 大纲默认是否展开。 */
 	outlineAutoExpand: boolean;
-	/** 给出大纲根标题的公式属性；null = 整篇笔记。 */
+	/** Formula property holding the outline root heading; null = the whole note. */
 	outlineRootId: BasesPropertyId | null;
-	/** 大纲折叠开关上显示的文字。 */
 	outlineLabel: string;
-	/** 每篇笔记的大纲开合状态（true = 展开）。视图实例持有，全量重建之后仍然保留。 */
+	/** Per-note outline open state, held by the view so it survives a rebuild. */
 	outlineOpen: Map<string, boolean>;
 }
 
 /**
- * 渲染预算 —— 条目数 + 看板数，超过就一个都不画。
- *
- * `onDataUpdated` 是整块拆掉重建的，所以这个数字直接决定卡不卡。
- * 2000 大概对应一两万个 DOM 节点，那个量级上重建已经能感觉到停顿。
- * 真正危险的是没加过滤的 base（官方指南也专门警告过这点）：上万条笔记乘上层数，
- * 会在一次重建里把界面冻住。
+ * Draw at most this many entries plus boards. A base with no filter (which the
+ * official guide warns about) times a few nesting levels can otherwise freeze
+ * the UI, and every rebuild is a full teardown.
  */
 const RENDER_BUDGET = 2000;
 
 /**
- * 把 entries 渲染成嵌套看板，挂在 containerEl 下。
+ * Renders entries as nested boards under containerEl.
  *
- * properties 决定层级，第一个最外；空数组表示不嵌套，全部平铺进一个 Ungroup 看板。
- * entries 的顺序原样保留（Bases 已经按用户的排序配好了），这里从不重排。
+ * `properties` defines the levels, outermost first; an empty list means no
+ * nesting and everything lands in one board. Entry order is preserved — Bases
+ * already sorted them — and is never changed here.
  */
 export function renderBoard(
 	containerEl: HTMLElement,
@@ -65,7 +60,7 @@ export function renderBoard(
 	properties: BasesPropertyId[],
 	host: BoardHost,
 ): void {
-	// 先只数一遍要画多少东西 —— 纯计数、不建 DOM。超了就罢工，免得把界面冻住。
+	// Count first, without touching the DOM. Over budget, draw nothing at all.
 	const boards = countBoards(entries, properties, 0, RENDER_BUDGET);
 	if (entries.length + boards > RENDER_BUDGET) {
 		containerEl.createDiv({
@@ -87,8 +82,8 @@ export function renderBoard(
 }
 
 /**
- * 渲染一层：把 entries 按 properties[depth] 分成若干看板。
- * 还有下一层就递归，已经是最后一层就把 entries 平铺成卡片。
+ * Draws one level: entries split into boards by properties[depth]. Recurses if
+ * another level follows, otherwise lays the entries out as cards.
  */
 function renderLevel(
 	parentEl: HTMLElement,
@@ -106,7 +101,7 @@ function renderLevel(
 		columnEl.createEl('h3', { text: label ?? t(EMPTY_GROUP_LABEL_KEY) });
 
 		if (depth + 1 < properties.length) {
-			// 标一下：这一列装的是子看板，宽度要跟着子看板那一排走
+			// Marks a column holding sub-boards, so CSS can size it to them.
 			columnEl.addClass('refine-column--parent');
 			renderLevel(columnEl, bucket, properties, depth + 1, host);
 		} else {
@@ -115,7 +110,7 @@ function renderLevel(
 	}
 }
 
-/** 不嵌套时：一个 Ungroup 看板，里面平铺所有 entries。 */
+/** No nesting: a single board holding every entry. */
 function renderFlat(
 	parentEl: HTMLElement,
 	entries: BasesEntry[],
@@ -139,21 +134,22 @@ function renderCards(
 }
 
 /**
- * 一张卡片，结构跟 Bases 内置的卡片视图一致：
- *   第一项属性当标题（不带标签），其余属性各占一块，display name 在值上面、字号更小。
- * 顺序、显示名、以及哪个属性打头，全部来自 Properties 菜单（config.getOrder()）。
+ * One card, laid out like the built-in Bases card view: the first property in
+ * the Properties menu becomes a bare title, the rest get a block each with the
+ * display name above the value. Order and display names come from that menu.
  */
 function renderCard(cardEl: HTMLElement, entry: BasesEntry, host: BoardHost): void {
-	// 整张卡片可点 —— 跳到这条笔记。带 Ctrl/Cmd 时开新标签页。
+	// The whole card is clickable. Ctrl/Cmd opens it in a new tab.
 	cardEl.addEventListener('click', (evt) => {
 		void host.app.workspace
 			.getLeaf(evt.ctrlKey || evt.metaKey)
 			.openFile(entry.file);
 	});
 
-	// 悬停弹笔记预览。弹窗本身由 Page preview 核心插件负责，我们只发事件。
+	// Hover preview. The popover itself is the Page preview core plugin's job;
+	// we only fire the event.
 	cardEl.addEventListener('mouseover', (evt) => {
-		// 在卡片内部移动时 relatedTarget 还落在卡片里 —— 别重复发
+		// Moving inside the card keeps relatedTarget within it — do not refire.
 		if (evt.relatedTarget instanceof Node && cardEl.contains(evt.relatedTarget)) {
 			return;
 		}
@@ -186,11 +182,11 @@ function renderCard(cardEl: HTMLElement, entry: BasesEntry, host: BoardHost): vo
 		);
 	}
 
-	// 卡片底部的大纲。没有标题就整块不出现。
+	// Outline at the bottom. Draws nothing when the note has no headings.
 	renderOutline(cardEl.createDiv('refine-card-outline'), entry, host);
 }
 
-/** 标题位：只画值，不画 display name。Properties 菜单是空的就没有标题。 */
+/** Title slot: the value alone, no display name. No title if the menu is empty. */
 function renderTitle(
 	cardEl: HTMLElement,
 	entry: BasesEntry,
@@ -206,8 +202,8 @@ function renderTitle(
 }
 
 /**
- * 按某个属性的值把 entries 分桶，保持首次出现的顺序（沿用 Bases 自己的排序）。
- * 值缺失或为空字符串的归到 key 为 `null` 的桶。
+ * Buckets entries by one property's value, keeping first-seen order (which is
+ * Bases' own sort). A missing or empty value goes to the `null` bucket.
  */
 function bucketEntries(
 	entries: BasesEntry[],
@@ -228,9 +224,9 @@ function bucketEntries(
 }
 
 /**
- * 数一遍会画出多少个看板。
- * 结构跟 renderLevel 一一对应，但不建任何 DOM —— 分组本身很快，贵的是往页面里塞。
- * 一旦超过预算就立刻收手，不再往下数。
+ * Counts how many boards would be drawn, mirroring renderLevel's structure
+ * without building any DOM. Grouping is cheap; the DOM is not. Gives up as
+ * soon as the budget is passed.
  */
 function countBoards(
 	entries: BasesEntry[],
@@ -238,11 +234,11 @@ function countBoards(
 	depth: number,
 	budget: number,
 ): number {
-	// 光条目就已经超预算了，不必再数
+	// More entries than the whole budget already — no point counting further.
 	if (entries.length > budget) return budget + 1;
 
 	const property = properties[depth];
-	if (property === undefined) return 1; // 平铺时的那一个 Ungroup 看板
+	if (property === undefined) return 1; // the single board of the flat case
 
 	let total = 0;
 	for (const [, bucket] of bucketEntries(entries, property)) {
@@ -250,8 +246,7 @@ function countBoards(
 		if (depth + 1 < properties.length) {
 			total += countBoards(bucket, properties, depth + 1, budget);
 		}
-		if (total > budget) return total; // 已经超了，数不准也无所谓
+		if (total > budget) return total; // already over; the exact number is moot
 	}
 	return total;
 }
-
