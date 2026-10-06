@@ -1,7 +1,7 @@
 {
 	"id": "rev-view",
 	"name": "Rev-view",
-	"version": "0.1.0",
+	"version": "0.1.1",
 	"minAppVersion": "1.10.0",
 	"description": "Nested kanban view for Bases.",
 	"author": "RethinkWu",

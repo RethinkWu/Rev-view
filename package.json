@@ -1,6 +1,6 @@
 {
 	"name": "rev-view",
-	"version": "0.1.0",
+	"version": "0.1.1",
 	"description": "Nested kanban view for Obsidian Bases",
 	"main": "main.js",
 	"type": "module",
