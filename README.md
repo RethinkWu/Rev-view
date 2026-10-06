@@ -30,7 +30,7 @@ to learn about picking properties.
 
 The Sort list ends up doing two jobs at once.
 
-Its **first `Nest depth` entries** become the levels of the board, outermost first, in the order you listed them. **Nest depth** is simply how many of them do, counting from the top.
+They decides how the kanban is nested, in the order you listed them, upper sort entry will be the outter kanban. **Nest depth** is simply how many of them do, counting from the top.
 
 The **remaining entries** don't contribute to the layout. They decide the order of the cards in the innermost board.
 
