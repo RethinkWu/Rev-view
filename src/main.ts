@@ -11,38 +11,30 @@ import { initLanguage, t } from './i18n';
 
 export const REFINE_VIEW_TYPE = 'refine-view';
 
-// Option keys. The nesting levels are not one of them — they come from the
-// first N entries of the Bases sort list.
 const NEST_DEPTH_KEY = 'nest-depth';
-/** Deepest heading level to draw. 0 = no outline at all. */
 const HEADING_DEPTH_KEY = 'heading-depth';
-/** Formula property holding the outline's root heading. Unset = the whole note. */
 const OUTLINE_ROOT_KEY = 'outline-root';
 const OUTLINE_EXPANDED_KEY = 'outline-expanded';
 const OUTLINE_LABEL_KEY = 'outline-label';
 const COLUMN_WIDTH_KEY = 'column-width';
-/** Past this the card list scrolls instead of stretching the column. */
 const COLUMN_HEIGHT_KEY = 'column-height';
 
-/** Fallback for a slider with no value yet. Keep in sync with the CSS defaults. */
+/** Fallback for a slider with no value. Keep in sync with the CSS defaults. */
 const DEFAULT_COLUMN_WIDTH = 340;
-/** 780px fits about ten title-only cards — tuned by hand. */
 const DEFAULT_COLUMN_HEIGHT = 780;
 
-/** Bases calls us on any vault change, so wait a beat and coalesce the bursts. */
+/** Bases reports every vault change, so coalesce the bursts. */
 const RENDER_DELAY_MS = 100;
 
 export default class RevViewPlugin extends Plugin {
 	async onload() {
-		initLanguage(); // every t() below depends on this
+		initLanguage();
 
 		const viewName = t('viewName');
 
-		// Page preview only previews hover-links from sources registered here.
-		// `display` shows up in its settings and should be the plugin's name.
+		// Makes the Page preview core plugin handle card previews.
 		this.registerHoverLinkSource(REFINE_VIEW_TYPE, {
 			display: this.manifest.name,
-			// Require Ctrl/Cmd by default, as with regular links.
 			defaultMod: true,
 		});
 
@@ -54,45 +46,36 @@ export default class RevViewPlugin extends Plugin {
 			},
 			options: () => [
 				{
-					// Nesting follows the Bases sort list, so every level is an
-					// official property picker and no string matching is needed.
-					// The rest of the list stays pure sorting: Bases already
-					// ordered the data and we never re-sort, so it only shows in
-					// the card order at the innermost level.
+					// Levels are the leading entries of the Bases sort list, so
+					// every one is an official property picker.
 					type: 'text',
 					key: NEST_DEPTH_KEY,
 					displayName: t('nestDepth'),
 					placeholder: t('numberPlaceholder'),
 				},
 				{
-					// A formula property whose value is the root heading's text,
-					// so the root can differ per note instead of being typed in.
-					// Unset = every heading in the note.
+					// A formula whose value is the root heading's text, so the
+					// root can differ per note. Unset = every heading.
 					type: 'property',
 					key: OUTLINE_ROOT_KEY,
 					displayName: t('outlineRoot'),
 					filter: (propertyId) => propertyId.startsWith('formula.'),
 				},
 				{
-					// Placeholder rather than default: an empty field keeps
-					// following the UI language instead of being frozen into
-					// the .base file.
+					// Placeholder, not default: an empty field keeps following
+					// the UI language instead of being frozen into the .base.
 					type: 'text',
 					key: OUTLINE_LABEL_KEY,
 					displayName: t('outlineLabel'),
 					placeholder: t('outline'),
 				},
 				{
-					// Expand outlines by default. Per-card open state is still
-					// remembered once the user toggles one.
 					type: 'toggle',
 					key: OUTLINE_EXPANDED_KEY,
 					displayName: t('autoExpandOutline'),
 					default: false,
 				},
 				{
-					// Nested levels shrink proportionally, so this is the only
-					// width to configure.
 					type: 'slider',
 					key: COLUMN_WIDTH_KEY,
 					displayName: t('columnWidth'),
@@ -129,7 +112,7 @@ export class RefineBasesView extends BasesView implements HoverParent {
 	readonly type = REFINE_VIEW_TYPE;
 	hoverPopover: HoverPopover | null = null;
 
-	// All of these are refreshed from the options at the start of every render.
+	// All refreshed from the options at the start of every render.
 	outlineDepth = 1;
 	outlineAutoExpand = false;
 	outlineRootId: BasesPropertyId | null = null;
@@ -137,15 +120,12 @@ export class RefineBasesView extends BasesView implements HoverParent {
 	columnWidth = DEFAULT_COLUMN_WIDTH;
 	columnHeight = DEFAULT_COLUMN_HEIGHT;
 
-	/**
-	 * Per-note outline open state. Lives on the instance so it survives a full
-	 * rebuild, and so split panes do not share it.
-	 */
+	/** Per-note outline open state. On the instance so split panes do not share it. */
 	readonly outlineOpen = new Map<string, boolean>();
 
 	private containerEl: HTMLElement;
 	private renderTimer: number | null = null;
-	/** Fingerprint of the last render. Unchanged means the rebuild is skipped. */
+	/** Fingerprint of the last render; an unchanged one skips the rebuild. */
 	private lastSignature = '';
 
 	constructor(controller: QueryController, parentEl: HTMLElement) {
@@ -157,7 +137,6 @@ export class RefineBasesView extends BasesView implements HoverParent {
 		});
 	}
 
-	/** Bases calls this on any vault change; debounce so a burst rebuilds once. */
 	public onDataUpdated(): void {
 		if (this.renderTimer !== null) window.clearTimeout(this.renderTimer);
 		this.renderTimer = window.setTimeout(() => {
@@ -184,14 +163,13 @@ export class RefineBasesView extends BasesView implements HoverParent {
 
 		const { properties, badDepth } = this.readNestConfig();
 
-		// Bases calls us on every vault change — including edits to notes that
-		// are not in this base — so skip the whole rebuild when nothing that
-		// affects the output has changed.
+		// Bases fires for any vault change, including notes outside this base,
+		// so skip when nothing the render depends on has changed.
 		const signature = this.renderSignature(properties, badDepth);
 		if (signature === this.lastSignature) return;
 		this.lastSignature = signature;
 
-		// Width and height travel as CSS variables, inherited by every board.
+		// Inherited as CSS variables by every board.
 		this.containerEl.style.setProperty(
 			'--refine-column-width',
 			`${String(this.columnWidth)}px`,
@@ -201,7 +179,7 @@ export class RefineBasesView extends BasesView implements HoverParent {
 			`${String(this.columnHeight)}px`,
 		);
 
-		// Build off-screen, then swap in one go — no clear-then-grow flicker.
+		// Built off-screen, then swapped in whole — no clear-then-grow flicker.
 		const staging = createDiv();
 
 		if (badDepth !== null) {
@@ -220,10 +198,7 @@ export class RefineBasesView extends BasesView implements HoverParent {
 		}
 	}
 
-	/**
-	 * Fingerprint of everything the render depends on: the entries (path, mtime
-	 * and every property we draw), their order, and all options.
-	 */
+	/** Fingerprint of everything the render depends on. */
 	private renderSignature(
 		properties: BasesPropertyId[],
 		badDepth: string | null,
@@ -231,7 +206,7 @@ export class RefineBasesView extends BasesView implements HoverParent {
 		const order = this.config.getOrder();
 		const parts: string[] = [
 			properties.join(','),
-			// Display names too: renaming a property must relabel the cards.
+			// Display names too, or renaming a property would not relabel the cards.
 			order
 				.map((id) => `${id}=${this.config.getDisplayName(id)}`)
 				.join(','),
@@ -243,8 +218,8 @@ export class RefineBasesView extends BasesView implements HoverParent {
 			`${String(this.outlineDepth)}|${String(this.outlineAutoExpand)}|${this.outlineRootId ?? ''}|${this.outlineLabel}|${String(this.columnWidth)}|${String(this.columnHeight)}`,
 		];
 
-		// Property values count too: a formula can reference another file, whose
-		// edits would not show up in this one's mtime.
+		// A formula can reference another file, whose edits never touch this
+		// note's mtime, so the values themselves have to be part of the hash.
 		const valueProperties = [
 			...new Set([
 				...properties,
@@ -263,17 +238,13 @@ export class RefineBasesView extends BasesView implements HoverParent {
 		return parts.join('\u0000');
 	}
 
-	/** Deepest heading level to draw. 0 = no outline; anything else defaults to 1. */
+	/** Deepest heading level to draw. 0 = none; unreadable values fall back to 1. */
 	private readOutlineDepth(): number {
 		const depth = Number(this.config.get(HEADING_DEPTH_KEY));
 		return Number.isInteger(depth) && depth >= 0 ? depth : 1;
 	}
 
-	/**
-	 * Nesting levels = the first N entries of the sort list. An empty field means
-	 * all of them; anything that is not a non-negative integer is ignored and
-	 * returned so the view can warn about it.
-	 */
+	/** Nesting levels = the first N sort entries. A non-integer is reported back so the view can warn. */
 	private readNestConfig(): {
 		properties: BasesPropertyId[];
 		badDepth: string | null;

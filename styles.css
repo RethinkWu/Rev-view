@@ -1,7 +1,4 @@
-/* ============================================
-   Rev:View — nested board view.
-   Every class is prefixed with "refine-" so nothing leaks into global styles.
-   ============================================ */
+/* Rev:View — nested board view. Every class is prefixed with "refine-". */
 
 /* Root: the warning strip on top, the boards below. */
 .refine-container {
@@ -29,16 +26,12 @@
   margin: 0;
 }
 
-/* The "how to fix it" line, muted so it doesn't compete with the error itself. */
 .refine-warning p {
   margin: 4px 0 0;
   color: var(--text-muted);
 }
 
-
-/* ============================================
-   A row of boards. Every nesting level has this shape.
-   ============================================ */
+/* A row of boards. Every nesting level has this shape. */
 .refine-columns {
   display: flex;
   flex-direction: row;
@@ -63,21 +56,19 @@
   overflow: auto;
 }
 
-/* ============================================
-   A board (one column = one group)
-   ============================================ */
+/* A board (one column = one group). */
 .refine-column {
-  /* One value drives the width: min/max are calc'd from it, so the column-width
-     slider moves all three together. JS sets --refine-column-width inline on
-     the container, and it inherits down to every board. */
+  /* One value drives the width: min/max are calc'd from it, so the
+     column-width slider moves all three together. JS sets
+     --refine-column-width inline on the container and it inherits down. */
   --refine-col-basis: var(--refine-column-width, 340px);
   --refine-col-min: calc(var(--refine-col-basis) * 0.65);
   --refine-col-max: calc(var(--refine-col-basis) * 1.5);
 
   display: flex;
   flex-direction: column;
-  /* Grows to --refine-col-max when there is room, shrinks to --refine-col-min
-     when there isn't, and the row scrolls past that. */
+  /* Grows to the max when there is room, shrinks to the min when there isn't,
+     and the row scrolls past that. */
   flex: 1 1 var(--refine-col-basis);
   min-width: var(--refine-col-min);
   max-width: var(--refine-col-max);
@@ -93,14 +84,13 @@
   overflow: hidden;
 }
 
-/* A column holding sub-boards: sized to fit them, up to --refine-col-max. */
+/* A column holding sub-boards: sized to fit them, up to the max. */
 .refine-column--parent {
   flex: 0 0 auto;
   width: max-content;
 }
 
-/* Nested levels are narrower and use a different background, to read as depth.
-   Only the basis changes; min/max follow it through the calc above. */
+/* Nested levels are narrower and use a different background, to read as depth. */
 .refine-column .refine-column {
   --refine-col-basis: calc(var(--refine-column-width, 340px) * 0.7);
   padding: 10px;
@@ -119,9 +109,7 @@
   flex-shrink: 0;           /* the title does not scroll with the cards */
 }
 
-/* ============================================
-   The card list (innermost level)
-   ============================================ */
+/* The card list (innermost level). */
 .refine-card-list {
   display: flex;
   flex-direction: column;
@@ -130,9 +118,6 @@
   min-height: 0;            /* what lets a flex child scroll */
 }
 
-/* ============================================
-   Cards
-   ============================================ */
 .refine-card {
   /* Cards have their own ceiling, so a long property list or outline scrolls
      inside the card instead of stretching the column. */
@@ -157,16 +142,12 @@
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
 }
 
-/* ============================================
-   Scrollbars are hidden outright — scrolling still works, just invisibly.
-   Uses the standard properties rather than ::-webkit-scrollbar, which themes
-   were observed to override entirely.
-   ============================================ */
+/* Scrollbars are hidden outright — scrolling still works, just invisibly.
+   Standard properties rather than ::-webkit-scrollbar, which themes override. */
 .refine-container .refine-columns,
 .refine-container .refine-card-list,
 .refine-container .refine-card {
   scrollbar-width: none;
-  /* Fallback: if scrollbar-width loses to another rule, the colours still hide it. */
   scrollbar-color: transparent transparent;
 }
 
@@ -179,11 +160,9 @@
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.14);
 }
 
-/* ============================================
-   Card contents — same layout as the built-in Bases card view:
-   a bare title (the first Properties entry), then one block per property with
-   the display name above a smaller value.
-   ============================================ */
+/* Card contents — same layout as the built-in Bases card view: a bare title
+   (the first Properties entry), then one block per property with the display
+   name above a smaller value. */
 .refine-card-title {
   margin-bottom: 8px;
   font-size: 1em;
@@ -211,11 +190,8 @@
   color: var(--text-normal);
 }
 
-/* ============================================
-   The outline on a card.
-   Collapsed by default. When open it shows headings down to the Heading depth
-   option; each heading jumps to itself when clicked.
-   ============================================ */
+/* The outline on a card. Collapsed by default; when open it shows headings
+   down to the Heading depth option, each one jumping to itself on click. */
 .refine-card-outline {
   margin-top: 10px;
   padding-top: 8px;
@@ -268,8 +244,8 @@
   text-decoration: underline;
 }
 
-/* Narrow screens step down one notch. This changes --refine-col-basis rather
-   than --refine-column-width: the latter is inline and outranks a media query. */
+/* Narrow screens step down one notch. This changes the basis rather than
+   --refine-column-width, which is inline and outranks a media query. */
 @media (max-width: 768px) {
   .refine-column {
     --refine-col-basis: calc(var(--refine-column-width, 340px) * 0.7);

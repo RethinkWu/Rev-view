@@ -8,29 +8,17 @@ import {
 import { t, type MessageKey } from './i18n';
 import { renderOutline } from './outline';
 
-/**
- * Turns a list of entries into nested boards, splitting them by one property
- * per level. This file only knows how to draw; where the property list comes
- * from is the view's business, so changing that source never touches it.
- */
+/** Renders entries as nested boards, splitting them by one property per level. */
 
-/**
- * Label for a board whose group value is empty — a missing property and an
- * empty string both count. Stored as a key, not text: initLanguage() has not
- * run yet when this module loads.
- */
+/** Board label when the group value is empty. */
 const EMPTY_GROUP_LABEL_KEY: MessageKey = 'ungroup';
 
-/**
- * What the renderer needs from the view. BasesView already matches this shape,
- * so callers can just pass `this`.
- */
+/** What the renderer needs from the view. BasesView already matches this shape. */
 export interface BoardHost extends HoverParent {
 	app: App;
 	config: BasesViewConfig;
 	/** View type id — also the source id registered with registerHoverLinkSource. */
 	type: string;
-	/** Deepest heading level to draw in card outlines. 0 = none. */
 	outlineDepth: number;
 	outlineAutoExpand: boolean;
 	/** Formula property holding the outline root heading; null = the whole note. */
@@ -40,19 +28,12 @@ export interface BoardHost extends HoverParent {
 	outlineOpen: Map<string, boolean>;
 }
 
-/**
- * Draw at most this many entries plus boards. A base with no filter (which the
- * official guide warns about) times a few nesting levels can otherwise freeze
- * the UI, and every rebuild is a full teardown.
- */
+/** Entries plus boards beyond this are not drawn at all. */
 const RENDER_BUDGET = 2000;
 
 /**
- * Renders entries as nested boards under containerEl.
- *
- * `properties` defines the levels, outermost first; an empty list means no
- * nesting and everything lands in one board. Entry order is preserved — Bases
- * already sorted them — and is never changed here.
+ * Renders entries as nested boards under containerEl, outermost property first.
+ * An empty property list means one flat board. Entry order is never changed.
  */
 export function renderBoard(
 	containerEl: HTMLElement,
@@ -60,7 +41,7 @@ export function renderBoard(
 	properties: BasesPropertyId[],
 	host: BoardHost,
 ): void {
-	// Count first, without touching the DOM. Over budget, draw nothing at all.
+	// Counted first, without touching the DOM.
 	const boards = countBoards(entries, properties, 0, RENDER_BUDGET);
 	if (entries.length + boards > RENDER_BUDGET) {
 		containerEl.createDiv({
@@ -81,10 +62,7 @@ export function renderBoard(
 	renderLevel(containerEl, entries, properties, 0, host);
 }
 
-/**
- * Draws one level: entries split into boards by properties[depth]. Recurses if
- * another level follows, otherwise lays the entries out as cards.
- */
+/** One level: split by properties[depth], then recurse or draw cards. */
 function renderLevel(
 	parentEl: HTMLElement,
 	entries: BasesEntry[],
@@ -101,7 +79,7 @@ function renderLevel(
 		columnEl.createEl('h3', { text: label ?? t(EMPTY_GROUP_LABEL_KEY) });
 
 		if (depth + 1 < properties.length) {
-			// Marks a column holding sub-boards, so CSS can size it to them.
+			// Lets CSS size this column to the row of sub-boards inside it.
 			columnEl.addClass('refine-column--parent');
 			renderLevel(columnEl, bucket, properties, depth + 1, host);
 		} else {
@@ -110,7 +88,7 @@ function renderLevel(
 	}
 }
 
-/** No nesting: a single board holding every entry. */
+/** No nesting: every entry in a single board. */
 function renderFlat(
 	parentEl: HTMLElement,
 	entries: BasesEntry[],
@@ -133,23 +111,18 @@ function renderCards(
 	}
 }
 
-/**
- * One card, laid out like the built-in Bases card view: the first property in
- * the Properties menu becomes a bare title, the rest get a block each with the
- * display name above the value. Order and display names come from that menu.
- */
+/** One card, laid out like the built-in Bases card view. */
 function renderCard(cardEl: HTMLElement, entry: BasesEntry, host: BoardHost): void {
-	// The whole card is clickable. Ctrl/Cmd opens it in a new tab.
+	// The whole card opens the note; Ctrl/Cmd opens a new tab.
 	cardEl.addEventListener('click', (evt) => {
 		void host.app.workspace
 			.getLeaf(evt.ctrlKey || evt.metaKey)
 			.openFile(entry.file);
 	});
 
-	// Hover preview. The popover itself is the Page preview core plugin's job;
-	// we only fire the event.
+	// Page preview draws the popover; we only fire the event.
 	cardEl.addEventListener('mouseover', (evt) => {
-		// Moving inside the card keeps relatedTarget within it — do not refire.
+		// Moving within the card keeps relatedTarget inside it.
 		if (evt.relatedTarget instanceof Node && cardEl.contains(evt.relatedTarget)) {
 			return;
 		}
@@ -182,11 +155,10 @@ function renderCard(cardEl: HTMLElement, entry: BasesEntry, host: BoardHost): vo
 		);
 	}
 
-	// Outline at the bottom. Draws nothing when the note has no headings.
 	renderOutline(cardEl.createDiv('refine-card-outline'), entry, host);
 }
 
-/** Title slot: the value alone, no display name. No title if the menu is empty. */
+/** Title slot: the value alone, no display name. */
 function renderTitle(
 	cardEl: HTMLElement,
 	entry: BasesEntry,
@@ -202,8 +174,8 @@ function renderTitle(
 }
 
 /**
- * Buckets entries by one property's value, keeping first-seen order (which is
- * Bases' own sort). A missing or empty value goes to the `null` bucket.
+ * Buckets by one property's value, keeping first-seen order (which is Bases'
+ * own sort). Missing and empty values share the null bucket.
  */
 function bucketEntries(
 	entries: BasesEntry[],
@@ -223,22 +195,17 @@ function bucketEntries(
 	return buckets;
 }
 
-/**
- * Counts how many boards would be drawn, mirroring renderLevel's structure
- * without building any DOM. Grouping is cheap; the DOM is not. Gives up as
- * soon as the budget is passed.
- */
+/** How many boards renderLevel would draw, counted without touching the DOM. */
 function countBoards(
 	entries: BasesEntry[],
 	properties: BasesPropertyId[],
 	depth: number,
 	budget: number,
 ): number {
-	// More entries than the whole budget already — no point counting further.
 	if (entries.length > budget) return budget + 1;
 
 	const property = properties[depth];
-	if (property === undefined) return 1; // the single board of the flat case
+	if (property === undefined) return 1; // the one board of the flat case
 
 	let total = 0;
 	for (const [, bucket] of bucketEntries(entries, property)) {
@@ -246,7 +213,7 @@ function countBoards(
 		if (depth + 1 < properties.length) {
 			total += countBoards(bucket, properties, depth + 1, budget);
 		}
-		if (total > budget) return total; // already over; the exact number is moot
+		if (total > budget) return total;
 	}
 	return total;
 }

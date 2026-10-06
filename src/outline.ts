@@ -1,17 +1,9 @@
 import { BasesEntry, HeadingCache } from 'obsidian';
 import type { BoardHost } from './board';
 
-/**
- * The outline on a card: the note's headings listed flat, the whole block
- * collapsible. The only source is the metadata cache — a synchronous lookup
- * that parses nothing, so reading it is nearly free. Drawing is what costs, so
- * the block starts collapsed.
- */
+/** The note's headings listed flat on a card, in one collapsible block. */
 
-/**
- * Draws the whole block under containerEl. Toggling calls it again, rebuilding
- * only this block rather than the card.
- */
+/** Toggling calls this again, rebuilding only this block rather than the card. */
 export function renderOutline(
 	containerEl: HTMLElement,
 	entry: BasesEntry,
@@ -29,8 +21,7 @@ export function renderOutline(
 	if (headings.length === 0) return;
 
 	const { path } = entry.file;
-	// Only cards the user has toggled keep their own state; the rest follow the
-	// "expand by default" option.
+	// Cards the user has toggled keep their own state; the rest follow the option.
 	const open = host.outlineOpen.get(path) ?? host.outlineAutoExpand;
 
 	const toggleEl = containerEl.createDiv({ cls: 'refine-outline-toggle' });
@@ -46,8 +37,7 @@ export function renderOutline(
 
 	const listEl = containerEl.createEl('ul', { cls: 'refine-outline-list' });
 	for (const heading of headings) {
-		// Levels are relative to the root. Without one baseLevel is 0, so this
-		// is just the absolute level.
+		// Relative to the root; without one baseLevel is 0.
 		const relative = heading.level - baseLevel;
 		if (relative > host.outlineDepth) continue;
 
@@ -70,7 +60,7 @@ export function renderOutline(
 
 /**
  * Root heading text, evaluated from the chosen formula property on this note,
- * so each note can have its own root. Unset or empty means "no filtering".
+ * so each note can have its own root. Unset or empty means no filtering.
  */
 function readRootText(entry: BasesEntry, host: BoardHost): string {
 	const source = host.outlineRootId;
@@ -82,13 +72,9 @@ function readRootText(entry: BasesEntry, host: BoardHost): string {
 }
 
 /**
- * Picks the range to render.
- *
- * No root: the whole note, with baseLevel 0 (levels stay absolute).
- * Root set: the heading whose text matches exactly (after trimming) and only
- * the subtree under it — everything up to the next heading at or above its
- * level. The root itself is not shown.
- * No match: nothing renders.
+ * Picks the range to render. With no root that is the whole note; with one it
+ * is the subtree under the matching heading, the root excluded. No match
+ * renders nothing.
  */
 function selectHeadings(
 	all: readonly HeadingCache[],
