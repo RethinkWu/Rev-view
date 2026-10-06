@@ -5,5 +5,6 @@
 	"minAppVersion": "1.10.0",
 	"description": "Nested board view for Bases: boards inside boards, with cards at the innermost level.",
 	"author": "RethinkWu",
+	"authorUrl": "https://github.com/RethinkWu",
 	"isDesktopOnly": false
 }

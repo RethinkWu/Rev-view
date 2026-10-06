@@ -7,33 +7,50 @@ Instead of one flat row of columns, Rev:View renders boards *inside* boards, wit
 the innermost level — so a multi-level note structure (project → milestone → task, say) can
 be read at a glance.
 
-> **Status: early development.** Nesting works, but cards currently show only the note name.
-
 ## Requirements
 
-- Obsidian **1.10.2** or later.
+- Obsidian **1.10.0** or later.
 - The core **Bases** plugin enabled.
 
 ## Usage
 
-Rev:View reads its nesting order from a **formula** in your base.
+Rev:View takes its nesting levels from the base's **Sort** list.
 
-1. In your base, create a formula property whose value is a list of properties, outermost
-   first. For example, to nest by `project` → `milestone`:
+1. In your base, add the properties you want to nest by to the **Sort** list, outermost
+   first.
+2. Add a view and pick **Refine** from the view type menu.
+3. In the view options, set **Nest depth** to how many of the leading Sort entries should
+   become nesting levels.
 
-   ```
-   ["note.project", "note.milestone"]
-   ```
+For example, with **Sort** set to `project` then `milestone`, and **Nest depth** `2`, you get
+a board per project, a board per milestone inside each, and cards inside those.
 
-   Bare names work too (`["project", "milestone"]`); they're resolved against the properties
-   in the base, preferring `note.` → `formula.` → `file.`.
+Notes missing a property are collected into an **Ungroup** board at every level. With an
+empty Sort list, everything lands in a single board.
 
-2. Add a view, pick **Rev:View** from the view type menu.
-3. In the view options, set **Nest by** to the formula you created in step 1.
+### Options
 
-Notes missing a property are collected into an **Ungroup** board, at every level.
-With no **Nest by** selected, the view renders a single **Ungroup** board containing
-everything.
+| Option | What it does |
+| --- | --- |
+| **Nest depth** | How many leading Sort entries become nesting levels. Empty = all of them. |
+| **Outline root** | A formula property whose value names the heading the card outline starts from. Empty = the whole note. |
+| **Outline label** | Text on the outline toggle. Empty = follow your interface language. |
+| **Auto expand outline** | Start every card outline expanded. |
+| **Column width** | Width of the outermost board. Nested boards scale down from it. |
+| **Column height** | Height ceiling per board. Longer card lists scroll inside it. |
+| **Heading depth** | Deepest heading level drawn in a card outline. `0` hides the outline entirely. |
+
+## Cards
+
+A card shows the first property in the **Properties** menu as its title, then every other
+property with its display name above the value — the same layout as the built-in Bases card
+view. Order and display names follow that menu.
+
+Each card also gets a collapsible outline of the note's headings, indented by level. Click
+one to jump to that heading in the note.
+
+Hover a card for the page preview (hold Ctrl/Cmd, as with any link), click to open the note,
+or Ctrl/Cmd-click to open it in a new tab.
 
 ## Development
 
@@ -50,4 +67,4 @@ locally, copy `main.js`, `manifest.json` and `styles.css` into
 
 ## License
 
-0-BSD. See [LICENSE](LICENSE).
+MIT. See [LICENSE](LICENSE).
