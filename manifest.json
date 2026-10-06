@@ -1,9 +1,9 @@
 {
 	"id": "rev-view",
-	"name": "Rev:View",
+	"name": "Rev:view",
 	"version": "0.1.0",
 	"minAppVersion": "1.10.0",
-	"description": "Nested board view for Bases: boards inside boards, with cards at the innermost level.",
+	"description": "Nested kanban view for Bases.",
 	"author": "RethinkWu",
 	"authorUrl": "https://github.com/RethinkWu",
 	"isDesktopOnly": false

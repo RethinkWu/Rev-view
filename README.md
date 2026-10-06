@@ -1,56 +1,63 @@
-# Rev:View
+# Rev:view
 
-An [Obsidian](https://obsidian.md) plugin that adds a **nested board view** to the core
+An [Obsidian](https://obsidian.md) plugin that adds a **nested kanban view** to the core
 [Bases](https://help.obsidian.md/bases) plugin.
 
-Instead of one flat row of columns, Rev:View renders boards *inside* boards, with cards at
-the innermost level — so a multi-level note structure (project → milestone → task, say) can
-be read at a glance.
+Bases already gives you a kanban board: one column per group. Rev:view goes a level further
+and lets a column hold another board, and that board hold another, with the notes as cards at
+the innermost level. A structure with depth — project → milestone → task, say — then reads as
+one picture instead of several separately filtered views.
 
 ## Requirements
 
 - Obsidian **1.10.0** or later.
 - The core **Bases** plugin enabled.
 
-## Usage
+## Quick start
 
-Rev:View takes its nesting levels from the base's **Sort** list.
+Rev:view takes its nesting levels from the base's own **Sort** list, so there is nothing new
+to learn about picking properties.
 
-1. In your base, add the properties you want to nest by to the **Sort** list, outermost
-   first.
+1. Create a base.
 2. Add a view and pick **Refine** from the view type menu.
-3. In the view options, set **Nest depth** to how many of the leading Sort entries should
-   become nesting levels.
+3. Open **Sort** and add the properties you want to nest by, outermost first — for example
+   folder → project → status.
 
-For example, with **Sort** set to `project` then `milestone`, and **Nest depth** `2`, you get
-a board per project, a board per milestone inside each, and cards inside those.
+   %%nested kanban%%
 
-Notes missing a property are collected into an **Ungroup** board at every level. With an
-empty Sort list, everything lands in a single board.
+4. In the view options, set **Nest depth** to how many of those leading Sort entries should become nesting levels.
 
-### Options
+## How the nesting works
+
+The Sort list ends up doing two jobs at once.
+
+Its **first `Nest depth` entries** become the levels of the board, outermost first, in the order you listed them. **Nest depth** is simply how many of them do, counting from the top.
+
+The **remaining entries** don't contribute to the layout. They decide the order of the cards in the innermost board.
+
+Leaving **Nest depth** empty means "use every sort entry".
+
+## Outlines on cards
+
+Each card can carry an outline of its note's headings.
+
+- The block collapses and expands per card, and a card keeps its own state until the view is
+  reloaded. **Auto expand outline** switch starts every card expanded.
+- **Heading depth** caps how deep the outline goes. `1` draws only top-level headings, `2` adds the next level down, and so on. `0` turns the outline off entirely.
+- **Outline label** renames the toggle. Left empty, it follows your interface language.
+- **Outline sections** narrows the outline to the headings you name, instead of the whole note. Point it at a **formula** property whose value is a heading's text, or a list of them: `["Goal", "Notes"]`. Every matched heading is listed together. Left empty, the outline covers the whole note.
+
+## Options
 
 | Option | What it does |
 | --- | --- |
 | **Nest depth** | How many leading Sort entries become nesting levels. Empty = all of them. |
-| **Outline root** | A formula property whose value names the heading the card outline starts from. Empty = the whole note. |
+| **Outline sections** | A formula property listing the headings the card outline keeps. Empty = the whole note. |
 | **Outline label** | Text on the outline toggle. Empty = follow your interface language. |
 | **Auto expand outline** | Start every card outline expanded. |
-| **Column width** | Width of the outermost board. Nested boards scale down from it. |
-| **Column height** | Height ceiling per board. Longer card lists scroll inside it. |
+| **Column width** | Width of the outermost kanban. Nested kanban scale down from it. |
+| **Column height** | Height ceiling per kanban. Longer card lists scroll inside it. |
 | **Heading depth** | Deepest heading level drawn in a card outline. `0` hides the outline entirely. |
-
-## Cards
-
-A card shows the first property in the **Properties** menu as its title, then every other
-property with its display name above the value — the same layout as the built-in Bases card
-view. Order and display names follow that menu.
-
-Each card also gets a collapsible outline of the note's headings, indented by level. Click
-one to jump to that heading in the note.
-
-Hover a card for the page preview (hold Ctrl/Cmd, as with any link), click to open the note,
-or Ctrl/Cmd-click to open it in a new tab.
 
 ## Development
 
@@ -60,10 +67,6 @@ npm run dev     # esbuild in watch mode
 npm run build   # typecheck + production bundle
 npm run lint    # eslint
 ```
-
-`main.js` is generated by the build and is intentionally not tracked in git. To test
-locally, copy `main.js`, `manifest.json` and `styles.css` into
-`<Vault>/.obsidian/plugins/rev-view/`.
 
 ## License
 

@@ -4,6 +4,7 @@ import {
 	BasesPropertyId,
 	BasesViewConfig,
 	HoverParent,
+	NullValue,
 } from 'obsidian';
 import { t, type MessageKey } from './i18n';
 import { renderOutline } from './outline';
@@ -21,8 +22,8 @@ export interface BoardHost extends HoverParent {
 	type: string;
 	outlineDepth: number;
 	outlineAutoExpand: boolean;
-	/** Formula property holding the outline root heading; null = the whole note. */
-	outlineRootId: BasesPropertyId | null;
+	/** Formula property listing the headings to keep; null = the whole note. */
+	outlineSectionsId: BasesPropertyId | null;
 	outlineLabel: string;
 	/** Per-note outline open state, held by the view so it survives a rebuild. */
 	outlineOpen: Map<string, boolean>;
@@ -185,7 +186,10 @@ function bucketEntries(
 
 	for (const entry of entries) {
 		const value = entry.getValue(property);
-		const text = value === null ? '' : value.toString();
+		// A missing property comes back as null and an empty one as NullValue.
+		// Both mean "no value", so both belong in the Ungroup bucket.
+		const text =
+			value === null || value instanceof NullValue ? '' : value.toString();
 		const key = text === '' ? null : text;
 
 		const bucket = buckets.get(key);

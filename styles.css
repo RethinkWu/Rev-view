@@ -1,4 +1,4 @@
-/* Rev:View — nested board view. Every class is prefixed with "refine-". */
+/* Rev:view — nested kanban view. Every class is prefixed with "refine-". */
 
 /* Root: the warning strip on top, the boards below. */
 .refine-container {
@@ -76,6 +76,8 @@
   /* Driven by the Column height slider; unset means fill the view. */
   max-height: var(--refine-column-max-height, 100%);
   background-color: var(--background-secondary);
+  /* A visible edge, so a board's extent stays obvious once boards nest. */
+  border: 1px solid var(--background-modifier-border);
   border-radius: 10px;
   padding: 12px;
   box-sizing: border-box;
@@ -90,11 +92,13 @@
   width: max-content;
 }
 
-/* Nested levels are narrower and use a different background, to read as depth. */
+/* Nested levels are narrower, sit on a different background and get a stronger
+   edge, so each layer reads as its own board inside its parent. */
 .refine-column .refine-column {
   --refine-col-basis: calc(var(--refine-column-width, 340px) * 0.7);
   padding: 10px;
   background-color: var(--background-primary-alt);
+  border-color: var(--background-modifier-border-hover, var(--background-modifier-border));
   box-shadow: none;
 }
 
@@ -129,8 +133,6 @@
 
   max-height: var(--refine-card-max-height);
   overflow-y: auto;
-  /* Reaching the bottom of a card must not carry on into the list behind it. */
-  overscroll-behavior: contain;
 
   background-color: var(--background-primary);
   border-radius: 8px;
@@ -142,11 +144,14 @@
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
 }
 
-/* Scrollbars are hidden outright — scrolling still works, just invisibly.
-   Standard properties rather than ::-webkit-scrollbar, which themes override. */
+/* Every scrolling box: hidden scrollbars, and overscroll contained so that
+   reaching the end of a card or a row never starts scrolling whatever sits
+   behind it. Standard properties rather than ::-webkit-scrollbar, which
+   themes were observed to override entirely. */
 .refine-container .refine-columns,
 .refine-container .refine-card-list,
 .refine-container .refine-card {
+  overscroll-behavior: contain;
   scrollbar-width: none;
   scrollbar-color: transparent transparent;
 }

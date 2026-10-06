@@ -1,4 +1,4 @@
-import { BasesEntry, HeadingCache } from 'obsidian';
+import { BasesEntry, HeadingCache, ListValue } from 'obsidian';
 import type { BoardHost } from './board';
 
 /** The note's headings listed flat on a card, in one collapsible block. */
@@ -17,7 +17,7 @@ export function renderOutline(
 	const all = host.app.metadataCache.getFileCache(entry.file)?.headings;
 	if (all === undefined || all.length === 0) return;
 
-	const { headings, baseLevel } = selectHeadings(all, readRootText(entry, host));
+	const { headings, baseLevel } = selectHeadings(all, readRootTexts(entry, host));
 	if (headings.length === 0) return;
 
 	const { path } = entry.file;
@@ -37,12 +37,11 @@ export function renderOutline(
 
 	const listEl = containerEl.createEl('ul', { cls: 'refine-outline-list' });
 	for (const heading of headings) {
-		// Relative to the root; without one baseLevel is 0.
+		// Level 1 is the outermost heading drawn; CSS turns it into indentation.
 		const relative = heading.level - baseLevel;
 		if (relative > host.outlineDepth) continue;
 
 		const itemEl = listEl.createEl('li', { cls: 'refine-outline-item' });
-		// CSS turns the level into indentation.
 		itemEl.style.setProperty('--refine-outline-level', String(relative));
 
 		itemEl
@@ -59,39 +58,71 @@ export function renderOutline(
 }
 
 /**
- * Root heading text, evaluated from the chosen formula property on this note,
- * so each note can have its own root. Unset or empty means no filtering.
+ * Heading texts to keep, evaluated from the chosen formula property on this
+ * note, so each note can name its own. A list property is the normal case; a
+ * single string works too. Empty means "no filtering".
  */
-function readRootText(entry: BasesEntry, host: BoardHost): string {
-	const source = host.outlineRootId;
-	if (source === null) return '';
+function readRootTexts(entry: BasesEntry, host: BoardHost): string[] {
+	const source = host.outlineSectionsId;
+	if (source === null) return [];
 
 	const value = entry.getValue(source);
-	if (value === null || !value.isTruthy()) return '';
-	return value.toString().trim();
+	if (value === null || !value.isTruthy()) return [];
+
+	if (value instanceof ListValue) {
+		const texts: string[] = [];
+		for (let index = 0; index < value.length(); index++) {
+			const text = value.get(index).toString().trim();
+			if (text !== '') texts.push(text);
+		}
+		return texts;
+	}
+
+	const text = value.toString().trim();
+	return text === '' ? [] : [text];
 }
 
 /**
- * Picks the range to render. With no root that is the whole note; with one it
- * is the subtree under the matching heading, the root excluded. No match
- * renders nothing.
+ * Picks the range to render.
+ *
+ * No root: the whole note, and heading levels are used as they are, so a
+ * top-level heading sits at depth 1.
+ *
+ * With roots: every heading whose text is one of them, each followed by its
+ * subtree — everything down to the next heading at or above its own level — in
+ * document order, so several sections can be stitched together with the
+ * headings in between left out. The shallowest match becomes depth 1.
+ * No match: nothing renders.
  */
 function selectHeadings(
 	all: readonly HeadingCache[],
-	rootText: string,
+	roots: readonly string[],
 ): { headings: readonly HeadingCache[]; baseLevel: number } {
-	const wanted = rootText.trim();
-	if (wanted === '') return { headings: all, baseLevel: 0 };
+	if (roots.length === 0) return { headings: all, baseLevel: 0 };
 
-	const start = all.findIndex((heading) => heading.heading.trim() === wanted);
-	if (start === -1) return { headings: [], baseLevel: 0 };
+	const wanted = new Set(roots);
+	const picked: HeadingCache[] = [];
+	let shallowest = Number.POSITIVE_INFINITY;
 
-	const baseLevel = all[start].level;
-	const subtree: HeadingCache[] = [];
-	for (let i = start + 1; i < all.length; i++) {
-		// Nothing shallower than the root belongs to this subtree.
-		if (all[i].level <= baseLevel) break;
-		subtree.push(all[i]);
+	for (let i = 0; i < all.length; i++) {
+		if (!wanted.has(all[i].heading.trim())) continue;
+
+		const level = all[i].level;
+		shallowest = Math.min(shallowest, level);
+		picked.push(all[i]);
+
+		// Its subtree runs until a heading at or above its level, which may
+		// itself be another match — hence resuming the outer loop from there.
+		let next = i + 1;
+		for (; next < all.length; next++) {
+			if (all[next].level <= level) break;
+			picked.push(all[next]);
+		}
+		i = next - 1;
 	}
-	return { headings: subtree, baseLevel };
+
+	if (picked.length === 0) return { headings: [], baseLevel: 0 };
+
+	// Off by one, so that the outermost heading lands on depth 1.
+	return { headings: picked, baseLevel: shallowest - 1 };
 }

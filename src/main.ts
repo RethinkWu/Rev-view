@@ -13,7 +13,7 @@ export const REFINE_VIEW_TYPE = 'refine-view';
 
 const NEST_DEPTH_KEY = 'nest-depth';
 const HEADING_DEPTH_KEY = 'heading-depth';
-const OUTLINE_ROOT_KEY = 'outline-root';
+const OUTLINE_SECTIONS_KEY = 'outline-sections';
 const OUTLINE_EXPANDED_KEY = 'outline-expanded';
 const OUTLINE_LABEL_KEY = 'outline-label';
 const COLUMN_WIDTH_KEY = 'column-width';
@@ -22,6 +22,8 @@ const COLUMN_HEIGHT_KEY = 'column-height';
 /** Fallback for a slider with no value. Keep in sync with the CSS defaults. */
 const DEFAULT_COLUMN_WIDTH = 340;
 const DEFAULT_COLUMN_HEIGHT = 780;
+/** 0 means a new base starts with no outline drawn. */
+const DEFAULT_HEADING_DEPTH = 0;
 
 /** Bases reports every vault change, so coalesce the bursts. */
 const RENDER_DELAY_MS = 100;
@@ -57,8 +59,8 @@ export default class RevViewPlugin extends Plugin {
 					// A formula whose value is the root heading's text, so the
 					// root can differ per note. Unset = every heading.
 					type: 'property',
-					key: OUTLINE_ROOT_KEY,
-					displayName: t('outlineRoot'),
+					key: OUTLINE_SECTIONS_KEY,
+					displayName: t('outlineSections'),
 					filter: (propertyId) => propertyId.startsWith('formula.'),
 				},
 				{
@@ -101,7 +103,7 @@ export default class RevViewPlugin extends Plugin {
 					min: 0,
 					max: 6,
 					step: 1,
-					default: 1,
+					default: DEFAULT_HEADING_DEPTH,
 				},
 			],
 		});
@@ -113,9 +115,9 @@ export class RefineBasesView extends BasesView implements HoverParent {
 	hoverPopover: HoverPopover | null = null;
 
 	// All refreshed from the options at the start of every render.
-	outlineDepth = 1;
+	outlineDepth = DEFAULT_HEADING_DEPTH;
 	outlineAutoExpand = false;
-	outlineRootId: BasesPropertyId | null = null;
+	outlineSectionsId: BasesPropertyId | null = null;
 	outlineLabel = '';
 	columnWidth = DEFAULT_COLUMN_WIDTH;
 	columnHeight = DEFAULT_COLUMN_HEIGHT;
@@ -148,7 +150,7 @@ export class RefineBasesView extends BasesView implements HoverParent {
 	private render(): void {
 		this.outlineDepth = this.readOutlineDepth();
 		this.outlineAutoExpand = this.config.get(OUTLINE_EXPANDED_KEY) === true;
-		this.outlineRootId = this.config.getAsPropertyId(OUTLINE_ROOT_KEY);
+		this.outlineSectionsId = this.config.getAsPropertyId(OUTLINE_SECTIONS_KEY);
 		const label: unknown = this.config.get(OUTLINE_LABEL_KEY);
 		this.outlineLabel =
 			typeof label === 'string' && label.trim() !== '' ? label : t('outline');
@@ -215,7 +217,7 @@ export class RefineBasesView extends BasesView implements HoverParent {
 				.map((entry) => `${entry.property}:${entry.direction}`)
 				.join(','),
 			badDepth ?? '',
-			`${String(this.outlineDepth)}|${String(this.outlineAutoExpand)}|${this.outlineRootId ?? ''}|${this.outlineLabel}|${String(this.columnWidth)}|${String(this.columnHeight)}`,
+			`${String(this.outlineDepth)}|${String(this.outlineAutoExpand)}|${this.outlineSectionsId ?? ''}|${this.outlineLabel}|${String(this.columnWidth)}|${String(this.columnHeight)}`,
 		];
 
 		// A formula can reference another file, whose edits never touch this
@@ -224,7 +226,7 @@ export class RefineBasesView extends BasesView implements HoverParent {
 			...new Set([
 				...properties,
 				...order,
-				...(this.outlineRootId === null ? [] : [this.outlineRootId]),
+				...(this.outlineSectionsId === null ? [] : [this.outlineSectionsId]),
 			]),
 		];
 
@@ -238,10 +240,10 @@ export class RefineBasesView extends BasesView implements HoverParent {
 		return parts.join('\u0000');
 	}
 
-	/** Deepest heading level to draw. 0 = none; unreadable values fall back to 1. */
+	/** Deepest heading level to draw. 0 = none; anything unreadable uses the default. */
 	private readOutlineDepth(): number {
 		const depth = Number(this.config.get(HEADING_DEPTH_KEY));
-		return Number.isInteger(depth) && depth >= 0 ? depth : 1;
+		return Number.isInteger(depth) && depth >= 0 ? depth : DEFAULT_HEADING_DEPTH;
 	}
 
 	/** Nesting levels = the first N sort entries. A non-integer is reported back so the view can warn. */
