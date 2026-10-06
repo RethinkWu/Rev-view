@@ -4,7 +4,6 @@ import {
 	BasesPropertyId,
 	BasesViewConfig,
 	HoverParent,
-	NullValue,
 } from 'obsidian';
 import { t, type MessageKey } from './i18n';
 import { renderOutline } from './outline';
@@ -142,18 +141,26 @@ function renderCard(cardEl: HTMLElement, entry: BasesEntry, host: BoardHost): vo
 	renderTitle(cardEl, entry, titleId, host);
 
 	for (const propertyId of propertyIds) {
-		const value = entry.getValue(propertyId);
-		if (value === null || !value.isTruthy()) continue;
-
 		const rowEl = cardEl.createDiv('refine-card-property');
 		rowEl.createDiv({
 			cls: 'refine-card-property-name',
 			text: host.config.getDisplayName(propertyId),
 		});
-		value.renderTo(
-			rowEl.createDiv('refine-card-property-value'),
-			host.app.renderContext,
-		);
+
+		// The row is drawn whether or not this note has a value for it, and an
+		// empty one shows a dash, as in the built-in card view. isTruthy() is
+		// Value's own "does this hold anything" test, so it covers a missing
+		// property, an empty list (backlinks with none) and an empty string,
+		// which a check for null or NullValue alone would miss.
+		const value = entry.getValue(propertyId);
+		if (value === null || !value.isTruthy()) {
+			rowEl.createDiv({ cls: 'refine-card-property-value', text: '-' });
+		} else {
+			value.renderTo(
+				rowEl.createDiv('refine-card-property-value'),
+				host.app.renderContext,
+			);
+		}
 	}
 
 	renderOutline(cardEl.createDiv('refine-card-outline'), entry, host);
@@ -186,10 +193,11 @@ function bucketEntries(
 
 	for (const entry of entries) {
 		const value = entry.getValue(property);
-		// A missing property comes back as null and an empty one as NullValue.
-		// Both mean "no value", so both belong in the Ungroup bucket.
+		// isTruthy() is Value's own "does this hold anything" test, so a missing
+		// property, an empty list and an empty string all count the same way and
+		// land in the Ungroup bucket instead of a column of their own.
 		const text =
-			value === null || value instanceof NullValue ? '' : value.toString();
+			value === null || !value.isTruthy() ? '' : value.toString();
 		const key = text === '' ? null : text;
 
 		const bucket = buckets.get(key);
