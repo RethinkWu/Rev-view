@@ -1,9 +1,9 @@
-# Rev:view
-
+# Rev-view
 An [Obsidian](https://obsidian.md) plugin that adds a **nested kanban view** to the core
 [Bases](https://help.obsidian.md/bases) plugin.
+This is **NOT** a plugin for reviewing!
 
-Bases already gives you a kanban board: one column per group. Rev:view goes a level further
+Bases already gives you a kanban board: one column per group. Rev-view goes a level further
 and lets a column hold another board, and that board hold another, with the notes as cards at
 the innermost level. A structure with depth — project → milestone → task, say — then reads as
 one picture instead of several separately filtered views.
@@ -15,7 +15,7 @@ one picture instead of several separately filtered views.
 
 ## Quick start
 
-Rev:view takes its nesting levels from the base's own **Sort** list, so there is nothing new
+Rev-view takes its nesting levels from the base's own **Sort** list, so there is nothing new
 to learn about picking properties.
 
 1. Create a base.
