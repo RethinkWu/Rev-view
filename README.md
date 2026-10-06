@@ -20,10 +20,9 @@ to learn about picking properties.
 
 1. Create a base.
 2. Add a view and pick **Refine** from the view type menu.
-3. Open **Sort** and add the properties you want to nest by, outermost first — for example
-   folder → project → status.
-
-   %%nested kanban%%
+3. Open **Sort** and add the properties you want to nest by, outermost first — for example: `folder → project → status.`
+![Sort list](assets/sort-list.png)
+   
 
 4. In the view options, set **Nest depth** to how many of those leading Sort entries should become nesting levels.
 
